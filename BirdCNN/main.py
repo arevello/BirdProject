@@ -12,15 +12,24 @@
 import mnist_loader
 import numpy as np
 from math import sqrt
+import datetime
 #from keras.datasets import mnist
 
 np.random.seed(0)
-training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
+
+timeStart = datetime.datetime.now()
+
+training_data_full, validation_data_full, test_data_full = mnist_loader.load_data_wrapper()
+#print(len(training_data), len(test_data))
+
+training_data_temp = training_data_full[:1000]
+test_data_temp = test_data_full[:100]
 
 #filters = [[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]]]
 filters = np.array([-1,-1,-1,0,0,0,1,1,1,
                     1,1,1,0,0,0,-1,-1,-1,
-                    1,0,-1,1,0,-1,1,0,-1])
+                    1,0,-1,1,0,-1,1,0,-1,
+                    -1,0,1,-1,0,1,-1,0,1])
 
 width = 28
 height = 28
@@ -38,7 +47,6 @@ def shapeFilters(dim, filts):
     return ret
 
 filters = shapeFilters(3, filters)
-print(filters)
 
 def outputSize(inputW, filterW, padding, stride):
     return (inputW - filterW + 2*padding)/(stride + 1)
@@ -66,7 +74,6 @@ def relu(val, derivative=False):
 def reshapeImageWithPadding(image, paddingSize):
     shape = int(sqrt(len(image)))
     stop = shape+paddingSize*2
-    print(shape,stop)
     ret = []
     retRow = np.zeros((stop,1))
     if paddingSize != 0:
@@ -141,7 +148,7 @@ def createNeuralNetwork(firstLayer, numHiddenLayers, hiddenLayerSizes, outputLay
     bias = []
     weights.append(np.random.randn(firstLayer,hiddenLayerSizes[0]))
     bias.append(np.zeros((1,hiddenLayerSizes[0])))
-    for i in range(0,len(hiddenLayerSizes)):
+    for i in range(0,len(hiddenLayerSizes)-1):
         weights.append(np.random.randn(hiddenLayerSizes[i],hiddenLayerSizes[i+1]))
         bias.append(np.zeros((1,hiddenLayerSizes[i+1])))
     weights.append(np.random.randn(hiddenLayerSizes[len(hiddenLayerSizes)-1], outputLayerSize))
@@ -151,25 +158,23 @@ def createNeuralNetwork(firstLayer, numHiddenLayers, hiddenLayerSizes, outputLay
 #tested
 def trainNeuralNetwork(epochs, weights, biases, trainX, trainY):
     for i in range(epochs):
+        if i%100 == 0:
+            print(int(i/epochs*100), " % done")
         for j in range(len(trainX)):
-            '''
-            #might need some variation
-            tempX = trainX[j]
-            tempX=np.zeros((1,2))
-            tempX[0][0] = trainX[j][0]
-            tempX[0][1] = trainX[j][1]
-            '''
             tempX = trainX[j]
             tempX = np.reshape(tempX, (1,len(tempX)))
             zTemp,activations = feedForward(tempX, weights, biases) 
-            weights,biases = backPropogation(tempX, trainY[j], weights, biases, activations, zTemp)
+            label = trainY[j][1]
+            weights,biases = backPropogation(tempX, label.T, weights, biases, activations, zTemp)
     return weights, biases
  
 #tested           
+#zTemp[0] = y hat
 def feedForward(trainData, weights, biases):
     zTemp = []
     activations = []
-    zTemp.append(np.dot(trainData, weights[0]) + biases[0])
+    test = np.dot(trainData, weights[0])
+    zTemp.append(test + biases[0])
     activations.append(relu(zTemp[0]))
     for i in range(1,len(weights)):
         zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
@@ -222,30 +227,59 @@ poolTest2.append(np.reshape(poolTest[1], (2,4)))
 print(maxPoolFilters(poolTest2,2))
 exit()'''
 
-test1 = reshapeImageWithPadding(test_data[0][0], 0)
-test2 = reshapeImageWithPadding(test_data[0][0], 1)
+def flattenImageSet(set, padding, newSize, step, poolSize):
+    
+    tempPadding = []
+    flattenStep = []
+    #add padding to all training images
+    for i in range(len(set)):
+        tempPadding.append(reshapeImageWithPadding(set[i][0], padding))
+        
+    #for all images
+    for i in range(len(tempPadding)):
+        #for amount of convs to do
+        prevConvStep = []
+        prevConvStep.append(tempPadding[i])
+        for s in range(len(step)):
+        #test_data[0][0][0-783] is vals [0-1]
+        #test_data[0][1][0-9] is label 0 or 1
+        
+            convStep = []
+            #for all filters
+            for p in range(len(prevConvStep)):
+                for f in range(len(filters)):
+                    convFilterStep = []
+                    for x in range(newSize[s]):
+                        for y in range(newSize[s]):
+                            temp = np.sum(getSubsetOfImage(prevConvStep[p], 3, x*step[s], y*step[s]) * filters[f]) #+ bias #replace 3 with filter len
+                            convFilterStep.append(temp)
+                    convFilterStep = np.reshape(np.array(convFilterStep), (newSize[s],newSize[s]))
+                    convStep.append(convFilterStep)
+            
+            prevConvStep = convStep.copy()
+            #pooling
+            if(poolSize != 1):
+                prevConvStep = maxPoolFilters(prevConvStep, poolSize)
+        
+        flattenStep.append(flattenImage(prevConvStep))
+    return flattenStep
 
-'''print(filters[2])
-for x in range(2):
-    for y in range(2):
-        print(getSubsetOfImage(filters[2], 2, x, y))'''
+flattenedTrain = flattenImageSet(training_data_temp, 1, (10, 8), (3, 1), 1)
 
-#test_data[0][0-783] is vals [0-1]
-#test_data[0][0-9] is label 0 or 1
+print(len(flattenedTrain))
 
-#one conv layer, one image, one color layer
-#for all images
-convStep1 = []
-step = 3
-for i in range(len(filters)):
-    convFilterStep = []
-    for x in range(10):
-        for y in range(10):
-            temp = np.sum(getSubsetOfImage(test2, 3, x*step, y*step) * filters[i]) #+ bias
-            convFilterStep.append(temp)
-    convFilterStep = np.reshape(np.array(convFilterStep), (10,10))
-    convStep1.append(convFilterStep)
+w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, (64, 16), 10)
+w,b = trainNeuralNetwork(1000, w, b, flattenedTrain, training_data_temp)
 
-#pooling
-poolStep = maxPoolFilters(convStep1, 2)
-flattenStep = flattenImage(poolStep)
+flattenedTest = flattenImageSet(test_data_temp, 1, (10, 8), (3,1), 1)
+
+for i in range(len(flattenedTest)):
+    tempX = flattenedTest[i]
+    tempX = np.reshape(tempX, (1,len(tempX)))
+    z,a = feedForward(tempX, w, b)
+
+    print(z[0])
+    print(test_data_temp[i][1])
+
+timeStop = datetime.datetime.now()
+print(timeStop - timeStart)
