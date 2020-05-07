@@ -13,19 +13,42 @@ import mnist_loader
 import numpy as np
 from math import sqrt
 import datetime
+import matplotlib.pyplot as plt
+import pickle
 #from keras.datasets import mnist
 
 np.random.seed(0)
 
 timeStart = datetime.datetime.now()
 
+trainSize = 1000
+testSize = 100
+hiddenLay = [100]
+'''convs = (10, 8)
+convstep = (3,1)
+pool = 1'''
+convs = (28, 12)
+convstep = (1,1)
+pool = 2
+learningRate = 1e-7
+epochs = 10000
+
 training_data_full, validation_data_full, test_data_full = mnist_loader.load_data_wrapper()
 #print(len(training_data), len(test_data))
 
-training_data_temp = training_data_full[:1000]
-test_data_temp = test_data_full[:100]
+training_data_temp = training_data_full[:trainSize]
+test_data_temp = training_data_full[:trainSize]
+real_test_data = test_data_full[:testSize]
 
 #filters = [[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]],[[-1, -1, -1],[0,0,0],[1,1,1]]]
+'''filters = np.array([-1,-1,-1,0,0,0,1,1,1,
+                    1,1,1,0,0,0,-1,-1,-1,
+                    1,0,-1,1,0,-1,1,0,-1,
+                    -1,0,1,-1,0,1,-1,0,1,
+                    -1,-1,0,-1,0,1,0,1,1,
+                    0,-1,-1,1,0,-1,1,1,0,
+                    1,1,0,1,0,-1,0,-1,-1,
+                    0,1,1,-1,0,1,-1,-1,0])'''
 filters = np.array([-1,-1,-1,0,0,0,1,1,1,
                     1,1,1,0,0,0,-1,-1,-1,
                     1,0,-1,1,0,-1,1,0,-1,
@@ -36,7 +59,10 @@ height = 28
 colorDepth = 1
 padSize = 1 #add padded row and col?
 strideSize = 1 #number of pixels to move over after conv of one block
-learningRate = 1e-7
+
+def buildTestImage():
+    image = np.zeros((280*280,1))
+    return image
 
 #tested
 def shapeFilters(dim, filts):
@@ -69,8 +95,22 @@ def relu(val, derivative=False):
         return 0
     return np.maximum(val,0)
 
-#assume square
-#tested
+def padAlreadySquare(image, paddingSize):
+    n,d = image.shape
+    ret = []
+    for i in range(paddingSize):
+        ret.append(np.zeros((paddingSize*2+n)))
+    for i in range(n):
+        temp = np.zeros((paddingSize*2+n))
+        test2 = [image[i].copy()]
+        temp[paddingSize:paddingSize+n] = image[i][:].copy()
+        ret.append(temp)
+    for i in range(paddingSize):
+        ret.append(np.zeros((paddingSize*2+n)))
+    return np.reshape(ret, (paddingSize*2+n, paddingSize*2+n))
+
+#assume square, input line
+#tested only with 1 TODO dynamic
 def reshapeImageWithPadding(image, paddingSize):
     shape = int(sqrt(len(image)))
     stop = shape+paddingSize*2
@@ -154,6 +194,10 @@ def createNeuralNetwork(firstLayer, numHiddenLayers, hiddenLayerSizes, outputLay
     weights.append(np.random.randn(hiddenLayerSizes[len(hiddenLayerSizes)-1], outputLayerSize))
     bias.append(np.zeros((1, outputLayerSize)))
     return weights, bias
+
+def softmax(Z):
+    expZ = np.exp(Z - np.max(Z))
+    return expZ / expZ.sum(axis=1, keepdims=True)
     
 #tested
 def trainNeuralNetwork(epochs, weights, biases, trainX, trainY):
@@ -166,6 +210,7 @@ def trainNeuralNetwork(epochs, weights, biases, trainX, trainY):
             zTemp,activations = feedForward(tempX, weights, biases) 
             label = trainY[j][1]
             weights,biases = backPropogation(tempX, label.T, weights, biases, activations, zTemp)
+            #weights,biases = trainOneLayerTest(tempX, weights, biases, trainY[j][1].T)
     return weights, biases
  
 #tested           
@@ -177,20 +222,89 @@ def feedForward(trainData, weights, biases):
     zTemp.append(test + biases[0])
     activations.append(relu(zTemp[0]))
     for i in range(1,len(weights)):
-        zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
+        #old way
+        '''zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
         if i != len(weights)-1:
+            activations.append(relu(zTemp[i]))'''
+        #new way
+        if i != len(weights)-1:
+            zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
             activations.append(relu(zTemp[i]))
+        else:
+            zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
+            activations.append(softmax(zTemp[i]))
     zTemp = zTemp[::-1]
     return zTemp,activations
 
+def trainOneLayerTest(trainData, weights, biases, trainLabel):
+    zh = np.dot(trainData, weights[0]) + biases[0]
+    ah = relu(zh)
+
+    # Phase 2
+    zo = np.dot(ah, weights[1]) + biases[1]
+    ao = softmax(zo)
+
+########## Back Propagation
+
+########## Phase 1
+
+    dcost_dzo = ao - trainLabel
+    dzo_dwo = ah
+
+    dcost_wo = np.dot(dzo_dwo.T, dcost_dzo)
+
+    dcost_bo = dcost_dzo
+
+########## Phases 2
+
+    dzo_dah = weights[1]
+    dcost_dah = np.dot(dcost_dzo , dzo_dah.T)
+    dah_dzh = relu(zh, derivative=True)
+    dzh_dwh = trainData
+    dcost_wh = np.dot(dzh_dwh.T, dah_dzh * dcost_dah)
+
+    dcost_bh = dcost_dah * dah_dzh
+
+    # Update Weights ================
+
+    weights[0] -= learningRate * dcost_wh
+    biases[0] -= learningRate * dcost_bh.sum(axis=0)
+
+    weights[1] -= learningRate * dcost_wo
+    biases[1] -= learningRate * dcost_bo.sum(axis=0)
+    return weights, biases
+
 #tested
 def backPropogation(trainData, trainLabel, weights, biases, activations, zTemp):
-    loss = np.mean((zTemp[0] - trainLabel)**2)
     
     errors=[]
     deltas=[]
+    '''
+    #new fucked way
+    dZ = zTemp[0] - trainLabel
+    dW = dZ.dot(activations[len(activations)-1].T)
+    dB = np.sum(dZ, axis = 1, keepdims=True)
+    daPrev = dZ.dot(weights[len(weights) - 1].T)
     
-    errors.append((zTemp[0] - trainLabel)/float(trainLabel.shape[0]))#1
+    for i in range(len(weights)-1, 0, -1):
+        dZ = daPrev *relu(zTemp[i], derivative=True)
+        dW = dZ.dot(activations[i-1].T)
+        dB = np.sum(dZ, axis=1, keepdims=True)
+        if i > 1:
+            daPrev = weights[i].T.dot(dZ.T)
+            
+        errors.append(dW)
+        deltas.append(dB)
+        
+    for i in range(len(errors)):
+        weights[i] -= learningRate*dW[i]
+        biases[i] -= learningRate*dB[i]
+    
+    return weights,biases'''
+    
+    #og way
+    #loss = zTemp[0] - trainLabel
+    errors.append((zTemp[0] - trainLabel))#/float(trainLabel.shape[0]))#1
     errors.append(errors[0].dot(weights[len(weights)-1].T))#2
     
     zTempItr = 1
@@ -214,6 +328,21 @@ def backPropogation(trainData, trainLabel, weights, biases, activations, zTemp):
     biases[len(biases)-1] -= learningRate*np.sum(errors[0])
     return weights,biases
 
+def calculateAccuracy(output, label):
+    labelAns = 0
+    for i in range(len(label)):
+        if int(label[i]) == 1:
+            labelAns = i
+    
+    guessAns = 0
+    guessAnsItr = 0
+    for i in range(len(output)):
+        if output[i] > guessAns:
+            guessAns = output[i]
+            guessAnsItr = i
+            
+    return labelAns, guessAnsItr, guessAns
+
 '''poolTest = [[1,1,2,2,1,1,2,2,3,3,4,4,3,3,4,4],[1,1,2,2,3,3,1,1,2,2,3,3]]
 poolTest2 = []
 poolTest2.append(np.reshape(poolTest[0], (4,4)))
@@ -227,14 +356,14 @@ poolTest2.append(np.reshape(poolTest[1], (2,4)))
 print(maxPoolFilters(poolTest2,2))
 exit()'''
 
-def flattenImageSet(set, padding, newSize, step, poolSize):
+def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, returnAll=False):
     
     tempPadding = []
     flattenStep = []
     #add padding to all training images
     for i in range(len(set)):
         tempPadding.append(reshapeImageWithPadding(set[i][0], padding))
-        
+    
     #for all images
     for i in range(len(tempPadding)):
         #for amount of convs to do
@@ -255,31 +384,101 @@ def flattenImageSet(set, padding, newSize, step, poolSize):
                             convFilterStep.append(temp)
                     convFilterStep = np.reshape(np.array(convFilterStep), (newSize[s],newSize[s]))
                     convStep.append(convFilterStep)
+                    
             
+            '''if i == 0:
+                plt.imshow(convStep[0])
+                plt.show()'''
             prevConvStep = convStep.copy()
             #pooling
             if(poolSize != 1):
                 prevConvStep = maxPoolFilters(prevConvStep, poolSize)
-        
-        flattenStep.append(flattenImage(prevConvStep))
+                '''if i == 0:
+                    plt.imshow(prevConvStep[0])
+                    plt.show()'''
+            if returnAll:
+                if flatten:
+                    flattenStep.append(flattenImage(prevConvStep))
+                else:
+                    flattenStep.append(prevConvStep)
+        if not returnAll:
+            if flatten:
+                flattenStep.append(flattenImage(prevConvStep))
+            else:
+                flattenStep.append(prevConvStep)
     return flattenStep
 
-flattenedTrain = flattenImageSet(training_data_temp, 1, (10, 8), (3, 1), 1)
+def fullyConvSemSeg():
+    #280,280 282,282 with padding
+    segImage = buildTestImage()
+    test = convolveImageSet([[segImage]], 1, (280, 138), (1,1), 2, flatten=False, returnAll=True)
+    for i in range(len(test)):
+        for j in range(len(test[i])):
+            temp = padAlreadySquare(test[i][j], 14)
+            
+            print("fuck")
+
+'''
+plt.imshow(np.reshape(training_data_temp[0][0], [28,28]))
+plt.show()'''
+
+#fullyConvSemSeg()
+
+flattenedTrain = convolveImageSet(training_data_temp, 1, convs, convstep, pool)
 
 print(len(flattenedTrain))
 
-w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, (64, 16), 10)
-w,b = trainNeuralNetwork(1000, w, b, flattenedTrain, training_data_temp)
+w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, hiddenLay, 10)
+w,b = trainNeuralNetwork(epochs, w, b, flattenedTrain, training_data_temp)
 
-flattenedTest = flattenImageSet(test_data_temp, 1, (10, 8), (3,1), 1)
+with open('w.pkl', 'wb') as outfile:
+    pickle.dump(w, outfile, pickle.HIGHEST_PROTOCOL)
 
+with open('b.pkl', 'wb') as outfile:
+    pickle.dump(b, outfile, pickle.HIGHEST_PROTOCOL)
+    
+#with open('w.pkl', 'rb') as infile:
+    #testW = pickle.load(infile)
+    
+#with open('b.pkl', 'rb') as infile:
+    #testB = pickle.load(infile)
+
+flattenedValid = convolveImageSet(test_data_temp, 1, convs, convstep, pool)
+
+numCorrect = 0
+avgAcc = 0
+for i in range(len(flattenedValid)):
+    tempX = flattenedValid[i]
+    tempX = np.reshape(tempX, (1,len(tempX)))
+    z,a = feedForward(tempX, w, b)
+
+    x,y,z = calculateAccuracy(a[len(a)-1][0], test_data_temp[i][1].T[0])
+    #print("answer ", x, " guess ", y, " certainty ", z)
+    if x == y:
+        numCorrect += 1
+    avgAcc += z
+
+print(numCorrect, numCorrect/trainSize, avgAcc/trainSize)
+timeStop = datetime.datetime.now()
+print(timeStop - timeStart)
+
+exit()
+
+flattenedTest = convolveImageSet(real_test_data, 1, convs, convstep, pool)
+
+numCorrect = 0
+avgAcc = 0
 for i in range(len(flattenedTest)):
     tempX = flattenedTest[i]
     tempX = np.reshape(tempX, (1,len(tempX)))
     z,a = feedForward(tempX, w, b)
 
-    print(z[0])
-    print(test_data_temp[i][1])
+    x,y,z = calculateAccuracy(a[len(a)-1][0], [real_test_data[i][1]])
+    #print("answer ", x, " guess ", y, " certainty ", z)
+    if x == y:
+        numCorrect += 1
+    avgAcc += z
 
+print(numCorrect, numCorrect/testSize, avgAcc/testSize)
 timeStop = datetime.datetime.now()
 print(timeStop - timeStart)
