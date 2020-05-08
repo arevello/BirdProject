@@ -60,9 +60,32 @@ colorDepth = 1
 padSize = 1 #add padded row and col?
 strideSize = 1 #number of pixels to move over after conv of one block
 
-def buildTestImage():
-    image = np.zeros((280*280,1))
-    return image
+def buildTestImage(size):
+    #xCoords = [2,5,4,3,7,8,6,1,9,0]
+    #yCoords = [5,7,3,1,8,0,4,2,6,9]
+    image = np.zeros((size*size,1))
+    imageSeg = np.zeros((size*size,1))
+    
+    #for i in range(len(xCoords)):
+    for h in range(10):
+        for i in range(10):
+            for j in range(28):
+                #image[xCoords[i]*28+j*size+yCoords[i]*size*28:xCoords[i]*28+j*size+yCoords[i]*size*28+28] = training_data_temp[i][0][j*28:j*28+28]
+                image[h*28+j*size+i*size*28:h*28+j*size+i*size*28+28] = training_data_temp[h*10+i][0][j*28:j*28+28]
+                val = 0
+                for k in range(10):
+                    if training_data_temp[h*10+i][1][k] == 1:
+                        val = k
+                for k in range(28):
+                    imageSeg[h*28+j*size+i*size*28+k] = val
+    
+    imageSeg = np.reshape(imageSeg, (size, size))
+    
+    plt.imshow(imageSeg)
+    plt.show()
+    image = np.reshape(image, (size,size))
+    
+    return image, imageSeg
 
 #tested
 def shapeFilters(dim, filts):
@@ -356,13 +379,16 @@ poolTest2.append(np.reshape(poolTest[1], (2,4)))
 print(maxPoolFilters(poolTest2,2))
 exit()'''
 
-def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, returnAll=False):
+def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, returnAll=False, alreadySquare=False):
     
     tempPadding = []
     flattenStep = []
     #add padding to all training images
     for i in range(len(set)):
-        tempPadding.append(reshapeImageWithPadding(set[i][0], padding))
+        if alreadySquare:
+            tempPadding.append(padAlreadySquare(set[i][0], padding))
+        else:
+            tempPadding.append(reshapeImageWithPadding(set[i][0], padding))
     
     #for all images
     for i in range(len(tempPadding)):
@@ -408,40 +434,176 @@ def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, return
                 flattenStep.append(prevConvStep)
     return flattenStep
 
+def convolveOnlyPooling(image, iters):
+    ret = []
+    ret.append(image)
+    for i in range(iters):
+        ret.append(maxPoolFilters([ret[len(ret)-1]], 2)[0])
+        
+    return ret
+
+def maxUpsample(image, size, amount):
+    if amount == 0:
+        return image
+    image = maxUpsample(image, size, amount-1)
+    ret = np.zeros((len(image)*size, len(image)*size))
+    for i in range(len(image)):
+        for j in range(len(image[i])):
+            for y in range(size):
+                for z in range(size):
+                    ret[i*size+y][j*size+z] = image[i][j]
+    return ret
+
+def upsamplePredictions(preds, size):
+    ret = np.zeros((len(preds)*size, len(preds)*size, 10))
+    for i in range(len(preds)):
+        for j in range(len(preds[i])):
+            for y in range(size):
+                for z in range(size):
+                    ret[i*size+y][j*size+z] = preds[i][j]
+    return ret
+
+def predToValue(preds):
+    guessAns = 0
+    guessAnsItr = 0
+    predsTemp = preds
+    for i in range(len(predsTemp)):
+        if predsTemp[i] > guessAns:
+            guessAns = predsTemp[i]
+            guessAnsItr = i
+    return guessAnsItr
+
+def printAccuracyOfSegmentation(result, test):
+    d,n = result.shape
+    print(d,n)
+    correct = 0
+    for i in range(d):
+        for j in range(n):
+            if result[i][j] == test[i][j]:
+                correct += 1
+    print("accuracy: ", str(correct/(d*n)))
+
 def fullyConvSemSeg():
-    #280,280 282,282 with padding
-    segImage = buildTestImage()
-    test = convolveImageSet([[segImage]], 1, (280, 138), (1,1), 2, flatten=False, returnAll=True)
+    #288x288
+    #get 144x144x4, 72x72x16, 36x36x64, 18x18x256, 9x9x1024
+    testImageSize = 288
+    segImage,classifiedImage = buildTestImage(testImageSize)
+    #test = convolveImageSet([[segImage]], 1, (280, 138), (1,1), 2, flatten=False, returnAll=True)
+    test = convolveOnlyPooling(segImage, 5)
+    #need 2 iters if doing filters
+    startRange = 1
+    stopRange = 3
+    images = []
+    preds = dict()
+    predItr = 0
     for i in range(len(test)):
-        for j in range(len(test[i])):
-            temp = padAlreadySquare(test[i][j], 14)
+        temp = padAlreadySquare(test[i], 14)
+        
+        #snag all 28x28 squares and feed forward to get classification
+                #print("fuck")
+        if i >= startRange and i <= stopRange:
+            ogN, ogD = test[i].shape
+            thisSet = []
+            print(temp.shape, test[i].shape)
+            for n in range(ogN):
+                for d in range(ogD):
+                    test2 = getSubsetOfImage(temp, 28, n, d)
+                    thisSet.append([test2])
+                    
+            flattenedStep = convolveImageSet(thisSet, 1, convs, convstep, pool, alreadySquare=True)
+            guessImage = []
+            guessPreds = []
+            for i in range(len(flattenedStep)):
+                z,a = feedForward(flattenedStep[i].T, w, b)
+                guessAns = 0
+                guessAnsItr = 0
+                predsTemp = a[len(a)-1].T
+                guessPreds.append(predsTemp)
+                for i in range(len(predsTemp)):
+                    if predsTemp[i] > guessAns:
+                        guessAns = predsTemp[i]
+                        guessAnsItr = i
+                guessImage.append(guessAnsItr)
             
+            guessImage = np.reshape(guessImage, (ogN, ogD))
+            guessPreds = np.reshape(guessPreds, (ogN, ogD, 10))
+            images.append(guessImage)
+            predStr = str(ogN) + "," + str(ogD)
+            preds[predStr] = guessPreds
+            predItr += 1
+        
+    #deconvolve by max unpooling
+    images = images[::-1]
+    scaleSize = stopRange
+    prevUpsampledVals = []
+    for i in range(len(images)):
+    
+        tempSize = testImageSize
+        for s in range(scaleSize):
+            tempSize /= 2
+        tempSize = int(tempSize)
+        sizeStr = str(str(tempSize) + "," + str(tempSize))
+        
+        if scaleSize == stopRange:
+            fullyUpsampledImage = maxUpsample(images[i], 2, scaleSize) #FCN 2**scaleSize
+            printAccuracyOfSegmentation(fullyUpsampledImage, classifiedImage)
+            plt.imshow(fullyUpsampledImage)
+            plt.show()
             print("fuck")
+        else:
+            #get this ones preds and add to prev
+            newPredVals = prevUpsampledVals + preds[sizeStr]
+
+            #get class image from preds
+            tempImage = []
+            for n1 in range(len(newPredVals)):
+                for n2 in range(len(newPredVals[n1])):
+                    tempImage.append(predToValue(newPredVals[n1][n2]))
+            tempImage = np.resize(tempImage, (tempSize, tempSize))
+            #upscale            
+            fullyUpsampledImage = maxUpsample(tempImage, 2, scaleSize) #FCN 2**scaleSize
+            printAccuracyOfSegmentation(fullyUpsampledImage, classifiedImage)
+            plt.imshow(fullyUpsampledImage)
+            plt.show()
+            print("fuck")
+        
+        if scaleSize != startRange:
+            #at the end so no reason to upscale predictions again
+            prevUpsampledVals = upsamplePredictions(preds[sizeStr], 2)
+            
+        scaleSize -= 1
+    
+    '''for i in range(startRange, stopRange):
+        for i in range
+        upsamplePrediction()
+        print("fuck")'''
 
 '''
 plt.imshow(np.reshape(training_data_temp[0][0], [28,28]))
 plt.show()'''
 
-#fullyConvSemSeg()
-
-flattenedTrain = convolveImageSet(training_data_temp, 1, convs, convstep, pool)
-
-print(len(flattenedTrain))
-
-w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, hiddenLay, 10)
+''''w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, hiddenLay, 10)
 w,b = trainNeuralNetwork(epochs, w, b, flattenedTrain, training_data_temp)
 
 with open('w.pkl', 'wb') as outfile:
     pickle.dump(w, outfile, pickle.HIGHEST_PROTOCOL)
 
 with open('b.pkl', 'wb') as outfile:
-    pickle.dump(b, outfile, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(b, outfile, pickle.HIGHEST_PROTOCOL)'''
     
-#with open('w.pkl', 'rb') as infile:
-    #testW = pickle.load(infile)
+with open('w.pkl', 'rb') as infile:
+    w = pickle.load(infile)
     
-#with open('b.pkl', 'rb') as infile:
-    #testB = pickle.load(infile)
+with open('b.pkl', 'rb') as infile:
+    b = pickle.load(infile)
+
+fullyConvSemSeg()
+print("great success")
+exit()
+
+flattenedTrain = convolveImageSet(training_data_temp, 1, convs, convstep, pool)
+
+print(len(flattenedTrain))
 
 flattenedValid = convolveImageSet(test_data_temp, 1, convs, convstep, pool)
 
