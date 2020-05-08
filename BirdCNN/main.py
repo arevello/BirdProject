@@ -22,9 +22,12 @@ np.random.seed(0)
 timeStart = datetime.datetime.now()
 
 trainSize = 1000
-testSize = 100
+testSize = 1000
+#array separated by commas for multiple hidden layers
 hiddenLay = [100]
+#array separeted by commas for different conv sizes
 '''convs = (10, 8)
+#array separated by commas for differ step size during convolution. Values must match or crash/bad results
 convstep = (3,1)
 pool = 1'''
 convs = (28, 12)
@@ -60,6 +63,7 @@ colorDepth = 1
 padSize = 1 #add padded row and col?
 strideSize = 1 #number of pixels to move over after conv of one block
 
+#create the image semantic segmentation by filling an image with 100 samples from the database
 def buildTestImage(size):
     #xCoords = [2,5,4,3,7,8,6,1,9,0]
     #yCoords = [5,7,3,1,8,0,4,2,6,9]
@@ -87,7 +91,7 @@ def buildTestImage(size):
     
     return image, imageSeg
 
-#tested
+#change the filters to square objects
 def shapeFilters(dim, filts):
     ret = []
     lenghtOfFilt = dim*dim
@@ -97,9 +101,11 @@ def shapeFilters(dim, filts):
 
 filters = shapeFilters(3, filters)
 
+#figure out the size of a new image during convolution
 def outputSize(inputW, filterW, padding, stride):
     return (inputW - filterW + 2*padding)/(stride + 1)
 
+#activation function
 def relu(val, derivative=False):
     '''if derivative:
         return 1/(1 + np.exp(-1*val))
@@ -118,6 +124,7 @@ def relu(val, derivative=False):
         return 0
     return np.maximum(val,0)
 
+#add padding to an image that has a square shape
 def padAlreadySquare(image, paddingSize):
     n,d = image.shape
     ret = []
@@ -132,7 +139,7 @@ def padAlreadySquare(image, paddingSize):
         ret.append(np.zeros((paddingSize*2+n)))
     return np.reshape(ret, (paddingSize*2+n, paddingSize*2+n))
 
-#assume square, input line
+#add padding to an image that is a line and change it to a square
 #tested only with 1 TODO dynamic
 def reshapeImageWithPadding(image, paddingSize):
     shape = int(sqrt(len(image)))
@@ -154,14 +161,14 @@ def reshapeImageWithPadding(image, paddingSize):
             
     return np.reshape(ret, (stop,stop))
 
-#tested
+#return a square subset of an image
 def getSubsetOfImage(image, size, x, y):
     ret = []
     for i in range(size):
         ret.append(np.array(image[x+i][y:y+size]))
     return np.array(ret)
 
-#tested
+#downsample done by average pooling
 def avgPoolFilters(input, poolSize):
     ret = []
     for f in range(len(input)):
@@ -179,7 +186,7 @@ def avgPoolFilters(input, poolSize):
         ret.append(filterRet)
     return ret
 
-#tested
+#downsample done by max pooling
 def maxPoolFilters(input, poolSize):
     ret = []
     for f in range(len(input)):
@@ -196,7 +203,7 @@ def maxPoolFilters(input, poolSize):
         ret.append(filterRet)
     return ret
 
-#tested
+#make an image into a line
 def flattenImage(input):
     ret = []
     finalDim = 0
@@ -205,7 +212,8 @@ def flattenImage(input):
         finalDim += d*n
     return np.reshape(input.copy(), (finalDim,1))
 
-#tested
+#create a neural network dynamic layers. firstLayer is an integer, 
+#hiddenLayerSizes is an array of sizes, and outputlayerSize is an integer
 def createNeuralNetwork(firstLayer, numHiddenLayers, hiddenLayerSizes, outputLayerSize):
     weights = []
     bias = []
@@ -218,11 +226,12 @@ def createNeuralNetwork(firstLayer, numHiddenLayers, hiddenLayerSizes, outputLay
     bias.append(np.zeros((1, outputLayerSize)))
     return weights, bias
 
+#softmax function for classifying results at the output layer
 def softmax(Z):
     expZ = np.exp(Z - np.max(Z))
     return expZ / expZ.sum(axis=1, keepdims=True)
     
-#tested
+#train an input network with epochs and a dataset with feeding and backpropogation
 def trainNeuralNetwork(epochs, weights, biases, trainX, trainY):
     for i in range(epochs):
         if i%100 == 0:
@@ -236,8 +245,7 @@ def trainNeuralNetwork(epochs, weights, biases, trainX, trainY):
             #weights,biases = trainOneLayerTest(tempX, weights, biases, trainY[j][1].T)
     return weights, biases
  
-#tested           
-#zTemp[0] = y hat
+#feed the data forward 
 def feedForward(trainData, weights, biases):
     zTemp = []
     activations = []
@@ -245,11 +253,6 @@ def feedForward(trainData, weights, biases):
     zTemp.append(test + biases[0])
     activations.append(relu(zTemp[0]))
     for i in range(1,len(weights)):
-        #old way
-        '''zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
-        if i != len(weights)-1:
-            activations.append(relu(zTemp[i]))'''
-        #new way
         if i != len(weights)-1:
             zTemp.append(np.dot(activations[i-1], weights[i]) + biases[i])
             activations.append(relu(zTemp[i]))
@@ -259,71 +262,11 @@ def feedForward(trainData, weights, biases):
     zTemp = zTemp[::-1]
     return zTemp,activations
 
-def trainOneLayerTest(trainData, weights, biases, trainLabel):
-    zh = np.dot(trainData, weights[0]) + biases[0]
-    ah = relu(zh)
-
-    # Phase 2
-    zo = np.dot(ah, weights[1]) + biases[1]
-    ao = softmax(zo)
-
-########## Back Propagation
-
-########## Phase 1
-
-    dcost_dzo = ao - trainLabel
-    dzo_dwo = ah
-
-    dcost_wo = np.dot(dzo_dwo.T, dcost_dzo)
-
-    dcost_bo = dcost_dzo
-
-########## Phases 2
-
-    dzo_dah = weights[1]
-    dcost_dah = np.dot(dcost_dzo , dzo_dah.T)
-    dah_dzh = relu(zh, derivative=True)
-    dzh_dwh = trainData
-    dcost_wh = np.dot(dzh_dwh.T, dah_dzh * dcost_dah)
-
-    dcost_bh = dcost_dah * dah_dzh
-
-    # Update Weights ================
-
-    weights[0] -= learningRate * dcost_wh
-    biases[0] -= learningRate * dcost_bh.sum(axis=0)
-
-    weights[1] -= learningRate * dcost_wo
-    biases[1] -= learningRate * dcost_bo.sum(axis=0)
-    return weights, biases
-
-#tested
+#backpropogate the data
 def backPropogation(trainData, trainLabel, weights, biases, activations, zTemp):
     
     errors=[]
     deltas=[]
-    '''
-    #new fucked way
-    dZ = zTemp[0] - trainLabel
-    dW = dZ.dot(activations[len(activations)-1].T)
-    dB = np.sum(dZ, axis = 1, keepdims=True)
-    daPrev = dZ.dot(weights[len(weights) - 1].T)
-    
-    for i in range(len(weights)-1, 0, -1):
-        dZ = daPrev *relu(zTemp[i], derivative=True)
-        dW = dZ.dot(activations[i-1].T)
-        dB = np.sum(dZ, axis=1, keepdims=True)
-        if i > 1:
-            daPrev = weights[i].T.dot(dZ.T)
-            
-        errors.append(dW)
-        deltas.append(dB)
-        
-    for i in range(len(errors)):
-        weights[i] -= learningRate*dW[i]
-        biases[i] -= learningRate*dB[i]
-    
-    return weights,biases'''
     
     #og way
     #loss = zTemp[0] - trainLabel
@@ -351,6 +294,7 @@ def backPropogation(trainData, trainLabel, weights, biases, activations, zTemp):
     biases[len(biases)-1] -= learningRate*np.sum(errors[0])
     return weights,biases
 
+#measure if one instance was classified correctly and the confidence
 def calculateAccuracy(output, label):
     labelAns = 0
     for i in range(len(label)):
@@ -366,19 +310,8 @@ def calculateAccuracy(output, label):
             
     return labelAns, guessAnsItr, guessAns
 
-'''poolTest = [[1,1,2,2,1,1,2,2,3,3,4,4,3,3,4,4],[1,1,2,2,3,3,1,1,2,2,3,3]]
-poolTest2 = []
-poolTest2.append(np.reshape(poolTest[0], (4,4)))
-poolTest2.append(np.reshape(poolTest[1], (2,6)))
-print(poolTest2)
-print(maxPoolFilters(poolTest2,2))'''
-'''poolTest = [[1,2,1,2,3,4,3,4,1,2,1,2,3,4,3,4],[1,2,1,2,3,4,3,4]]
-poolTest2 = []
-poolTest2.append(np.reshape(poolTest[0], (4,4)))
-poolTest2.append(np.reshape(poolTest[1], (2,4)))
-print(maxPoolFilters(poolTest2,2))
-exit()'''
-
+#run convolution and pooling operations on an image set
+#sizes of the outputs and inputs at the next layer were done manually because I am lazy
 def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, returnAll=False, alreadySquare=False):
     
     tempPadding = []
@@ -434,6 +367,7 @@ def convolveImageSet(set, padding, newSize, step, poolSize, flatten=True, return
                 flattenStep.append(prevConvStep)
     return flattenStep
 
+#convolution operation only using pooling. Used for segmentation convolution
 def convolveOnlyPooling(image, iters):
     ret = []
     ret.append(image)
@@ -442,6 +376,8 @@ def convolveOnlyPooling(image, iters):
         
     return ret
 
+#upsampling operation done by maxing one value take up a square of size*amount pixels 
+#recursive
 def maxUpsample(image, size, amount):
     if amount == 0:
         return image
@@ -454,6 +390,8 @@ def maxUpsample(image, size, amount):
                     ret[i*size+y][j*size+z] = image[i][j]
     return ret
 
+#upsampling for the prediction values that need to be added together with values one step above.
+#because of that, upsampling only occurs once
 def upsamplePredictions(preds, size):
     ret = np.zeros((len(preds)*size, len(preds)*size, 10))
     for i in range(len(preds)):
@@ -463,6 +401,7 @@ def upsamplePredictions(preds, size):
                     ret[i*size+y][j*size+z] = preds[i][j]
     return ret
 
+#classify a prediction
 def predToValue(preds):
     guessAns = 0
     guessAnsItr = 0
@@ -473,6 +412,7 @@ def predToValue(preds):
             guessAnsItr = i
     return guessAnsItr
 
+#calculate how many pixels of images match each other
 def printAccuracyOfSegmentation(result, test):
     d,n = result.shape
     print(d,n)
@@ -483,6 +423,8 @@ def printAccuracyOfSegmentation(result, test):
                 correct += 1
     print("accuracy: ", str(correct/(d*n)))
 
+#the fully convolutional semantic segmentation process
+#pools images, runs them through CNN, then upsamples them
 def fullyConvSemSeg():
     #288x288
     #get 144x144x4, 72x72x16, 36x36x64, 18x18x256, 9x9x1024
@@ -492,7 +434,7 @@ def fullyConvSemSeg():
     test = convolveOnlyPooling(segImage, 5)
     #need 2 iters if doing filters
     startRange = 1
-    stopRange = 3
+    stopRange = 5
     images = []
     preds = dict()
     predItr = 0
@@ -500,7 +442,6 @@ def fullyConvSemSeg():
         temp = padAlreadySquare(test[i], 14)
         
         #snag all 28x28 squares and feed forward to get classification
-                #print("fuck")
         if i >= startRange and i <= stopRange:
             ogN, ogD = test[i].shape
             thisSet = []
@@ -549,7 +490,6 @@ def fullyConvSemSeg():
             printAccuracyOfSegmentation(fullyUpsampledImage, classifiedImage)
             plt.imshow(fullyUpsampledImage)
             plt.show()
-            print("fuck")
         else:
             #get this ones preds and add to prev
             newPredVals = prevUpsampledVals + preds[sizeStr]
@@ -565,7 +505,6 @@ def fullyConvSemSeg():
             printAccuracyOfSegmentation(fullyUpsampledImage, classifiedImage)
             plt.imshow(fullyUpsampledImage)
             plt.show()
-            print("fuck")
         
         if scaleSize != startRange:
             #at the end so no reason to upscale predictions again
@@ -575,38 +514,45 @@ def fullyConvSemSeg():
     
     '''for i in range(startRange, stopRange):
         for i in range
-        upsamplePrediction()
-        print("fuck")'''
+        upsamplePrediction()'''
 
 '''
 plt.imshow(np.reshape(training_data_temp[0][0], [28,28]))
 plt.show()'''
 
-''''w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, hiddenLay, 10)
-w,b = trainNeuralNetwork(epochs, w, b, flattenedTrain, training_data_temp)
-
-with open('w.pkl', 'wb') as outfile:
-    pickle.dump(w, outfile, pickle.HIGHEST_PROTOCOL)
-
-with open('b.pkl', 'wb') as outfile:
-    pickle.dump(b, outfile, pickle.HIGHEST_PROTOCOL)'''
-    
-with open('w.pkl', 'rb') as infile:
-    w = pickle.load(infile)
-    
-with open('b.pkl', 'rb') as infile:
-    b = pickle.load(infile)
-
-fullyConvSemSeg()
-print("great success")
-exit()
-
+#turn the image set into convolved images that can be run through the CNN
 flattenedTrain = convolveImageSet(training_data_temp, 1, convs, convstep, pool)
 
 print(len(flattenedTrain))
 
+#same but for test data
 flattenedValid = convolveImageSet(test_data_temp, 1, convs, convstep, pool)
 
+#create and train the neural network
+w,b = createNeuralNetwork(len(flattenedTrain[0]), 2, hiddenLay, 10)
+'''w,b = trainNeuralNetwork(epochs, w, b, flattenedTrain, training_data_temp)'''
+
+#save weights and biases to save time
+with open('w.pkl', 'wb') as outfile:
+    pickle.dump(w, outfile, pickle.HIGHEST_PROTOCOL)
+
+with open('b.pkl', 'wb') as outfile:
+    pickle.dump(b, outfile, pickle.HIGHEST_PROTOCOL)
+
+#load weights and biases later, maulally done because I am lazy
+'''with open('w2.pkl', 'rb') as infile:
+    w = pickle.load(infile)
+    
+with open('b2.pkl', 'rb') as infile:
+    b = pickle.load(infile)'''
+
+#run the fully convoluted step.
+#if doing this you need to either load weights and biases or train a network
+'''fullyConvSemSeg()
+print("great success")
+exit()'''
+
+#test accuracy of CNN with data that trained it
 numCorrect = 0
 avgAcc = 0
 for i in range(len(flattenedValid)):
@@ -624,8 +570,7 @@ print(numCorrect, numCorrect/trainSize, avgAcc/trainSize)
 timeStop = datetime.datetime.now()
 print(timeStop - timeStart)
 
-exit()
-
+#test accuract of CNN with test data its never seen before
 flattenedTest = convolveImageSet(real_test_data, 1, convs, convstep, pool)
 
 numCorrect = 0
