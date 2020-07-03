@@ -7,6 +7,8 @@ and ``load_data_wrapper``.  In practice, ``load_data_wrapper`` is the
 function usually called by our neural network code.
 """
 
+#source http://neuralnetworksanddeeplearning.com/
+
 #### Libraries
 # Standard library
 import pickle

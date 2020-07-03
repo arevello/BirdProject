@@ -24,8 +24,10 @@ int main() {
 
 	TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &imageWidth);
 	TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &imageHeight);
+	TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &sampleperpixel);   // set number of channels per pixel
+	printf("%d", sampleperpixel);
 
-#ifdef TIF@
+#ifdef TIF2
 	TIFFSetField(tif2, TIFFTAG_IMAGEWIDTH, &imageWidth);
 	TIFFSetField(tif2, TIFFTAG_IMAGELENGTH, &imageHeight);
 	TIFFSetField(tif2, TIFFTAG_SAMPLESPERPIXEL, sampleperpixel);   // set number of channels per pixel
@@ -116,8 +118,33 @@ int main() {
 	uint32 * raster = (uint32*)_TIFFmalloc(imageHeight * imageWidth * sizeof(uint32));
 	if (raster != NULL) {
 		if (TIFFReadRGBAImage(tif, imageWidth, imageHeight, raster, 0)) {
+			for (int i = 0; i < imageHeight; i++) {
+				fwrite(raster + i * imageWidth, 1, imageWidth * sizeof(uint32), file);
+			}
+			/*for (int i = 0; i < imageHeight * imageWidth; i++) {
+				int temp1 = 0;
+				memcpy(&temp1, &raster[i], sizeof(uint32));
+				char temp1c = temp1 & 0xFF;
+				char temp2c = (temp1 & 0xFF00) >> 8;
+				char temp3c = (temp1 & 0xFF0000) >> 16;
+				char temp4c = (temp1 & 0xFF000000) >> 24;
+
+
+				int temp2 = temp1c;
+				int temp21 = temp2 << 8;
+				temp21 = temp21 | temp2c;
+				int temp22 = temp21 << 8;
+				temp22 = temp22 | temp3c;
+				int temp23 = temp22 << 8;
+				temp23 = temp23 | temp4c;
+				//printf("%d %d\n", temp1, temp2);
+				//if(temp1 != 0)
+					//printf("%x %x %x %x %x %x\n", temp1, temp23, temp1c, temp2c, temp3c, temp4c);
+
+				memcpy(&raster[i], &temp23, sizeof(uint32));
+			}
 			printf("HERE\n");
-			fwrite(raster, 1, imageHeight * imageWidth * sizeof(uint32), file);
+			fwrite(raster, 1, imageHeight * imageWidth * sizeof(uint32), file);*/
 		}
 		_TIFFfree(raster);
 	}
