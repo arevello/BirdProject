@@ -8,12 +8,14 @@ import birdConstants
 import fileUtils
 import mathUtils
 import matplotlib.pyplot as plt
+import pickle
 
 from osgeo import gdal
 from osgeo.gdalconst import *
 
 fu = fileUtils.FileUtilities()
 mu = mathUtils.MathUtilities()
+bc = birdConstants.BirdConstants()
 
 #fu.removeCsvFiles('D:\\')
 
@@ -38,7 +40,7 @@ for i in range(len(csvFiles)):
 
 gdal.AllRegister()
 
-appleIslandFile = 'D:\Appledore\AppledoreIsland_SmuttynoseIsland_CedarIsland_81191_81182_81194_20190531_Ortho_Multi_2CM.tif'
+#appleIslandFile = 'D:\Appledore\AppledoreIsland_SmuttynoseIsland_CedarIsland_81191_81182_81194_20190531_Ortho_Multi_2CM.tif'
 
 csvIdx = 0
 for t in range(len(tifFiles)):
@@ -48,9 +50,12 @@ for t in range(len(tifFiles)):
     while tifIdx[csvIdx] < t:
         csvIdx += 1
     
+    dumpFile = []
+    
     while tifIdx[csvIdx] == t:
         
-        print(t, tifIdx[csvIdx], csvIdx)
+        tifList = []
+        print(t, tifFiles[tifIdx[csvIdx]], csvFiles[csvIdx])
         
         if fh is None:
             print("failed to open")
@@ -70,20 +75,41 @@ for t in range(len(tifFiles)):
         pixelWidth = transform[1]
         pixelHeight = transform[5]
         
-        print(fileContents[csvIdx][0].get('X_POINT'))
-        '''for idx in range(1, 11):
+        for f in range(len(fileContents[csvIdx])):
+            csvList = []
+            #dumpFile.append([])
+            #print(fileContents[csvIdx][f].get('POINT_X'))
             
-            xOff, yOff = mu.getPixelCoords(float(fileContents[csvIdx][idx].get('X_POINT')), float(fileContents[csvIdx][idx].get('Y_POINT')), xOrig, yOrig, pixelWidth, pixelHeight)
+            try:
+                xOff, yOff = mu.getPixelCoords(float(fileContents[csvIdx][f].get('POINT_X')), float(fileContents[csvIdx][f].get('POINT_Y')), xOrig, yOrig, pixelWidth, pixelHeight)
+                species = bc.strToSpecies(fileContents[csvIdx][f].get('Species'))
+                behavior = int(fileContents[csvIdx][f].get('Behavior'))
+                csvList.append(species)
+                csvList.append(behavior)
             
-            for i in range(fh.RasterCount):
-                bands2 = fh.GetRasterBand(i+1)
-                #print(bands2.XSize, bands2.YSize)
-                #print(i)
-                
-                data = bands2.ReadAsArray(xOff-15, yOff-15, 30, 30)
-                #plt.imshow(data)
-                #plt.show()'''
+                for i in range(fh.RasterCount):
+                    #csvList.append(i)
+                    bands2 = fh.GetRasterBand(i+1)
+                    #print(bands2.XSize, bands2.YSize)
+                    #print(i)
+
+                    data = bands2.ReadAsArray(xOff-15, yOff-15, 30, 30)
+                    csvList.append(data)
+                    #plt.imshow(data)
+                    #plt.show()
+            except Exception as e:
+                print(e)
+                print("issue with file", csvFiles[csvIdx])
+                break
+            
+            tifList.append(csvList)
         
         csvIdx += 1
+        if csvIdx >= len(tifIdx):
+            break
     
     gdal.Unlink(tifFiles[t])
+    dumpFile.append(tifList)
+    
+with open('D:\\trainImg.pkl', 'wb') as outfile:
+    pickle.dump(dumpFile, outfile, pickle.HIGHEST_PROTOCOL)

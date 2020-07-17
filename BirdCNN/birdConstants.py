@@ -9,15 +9,28 @@ class BirdConstants(object):
     #species classifications
     HERG = 0
     GBBG = 1
-    COEI_M = 2
-    COEI_F = 3
+    COEI = 2
+    #COEI_M = 2
+    #COEI_F = 3
     TERN = 4
     DCCO = 5
     CANG = 6
     GBHE = 7
     LAGU = 8
     
-    numSpeciesClass = 9
+    #unsure of
+    SNEG = 9
+    BAEA = 10
+    GLIB = 11
+    BCNE = 12
+    BLGU = 13
+    ATPU = 14
+    TernSPP = 15
+    OTHER = 16
+    
+    specieStr = ["HERG", "GBBG", "COEI", "TERN", "DCCO", "CANG", "GBHE", "LAGU", "SNEG", "BAEA", "GLIB", "BCNE", "BLGU", "ATPU", "Tern spp", "Other"]
+    
+    #numSpeciesClass = 9
     
     #behavior classifications
     roosting = 0
@@ -25,9 +38,18 @@ class BirdConstants(object):
     flying = 2
     
     numBehaviorClass = 3
+    
+    def strToSpecies(self, str):
+        idx = 0
+        while idx < len(self.specieStr):
+            if str == self.specieStr[idx]:
+                return idx
+            idx += 1
+        print("cant find match for ", str)
+        return 16
 
 
-    def __init__(self, params):
+    def __init__(self):
         '''
         Constructor
         '''
