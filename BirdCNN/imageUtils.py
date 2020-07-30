@@ -18,8 +18,8 @@ class ImageUtilities(object):
     '''
     classdocs
     '''
-    mu = None
-    bc = None
+    mu = mathUtils.MathUtilities()
+    bc = birdConstants.BirdConstants()
     dumpFile = []
     
     def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents):
@@ -81,8 +81,8 @@ class ImageUtilities(object):
         
                             data = bands2.ReadAsArray(xOff-15, yOff-15, 30, 30)
                             csvList.append(data)
-                            plt.imshow(data)
-                            plt.show()
+                            #plt.imshow(data)
+                            #plt.show()
                     except Exception as e:
                         print(e)
                         print("issue with file", csvFiles[csvIdx])
@@ -111,29 +111,33 @@ class ImageUtilities(object):
         
         #print(infile[0][2])
         
-        data = infile[0][0][2]
-        mask = np.zeros((30,30))
-        
-        #start 14,15
-        rowCount = 2
-        start = 14
-        stop = 15
-        firstIter = True
-        thresh = 100
-        while start >= 0 and stop <= 29:
-            for i in range(start, stop+1):
-                for j in range(start, stop+1):
-                    if firstIter or data[i][j] >= thresh:
-                        mask[i][j] = 1
-            firstIter = False
-            start -= 1
-            stop += 1
-            
-        plt.imshow(data)
-        plt.show()
-        
-        plt.imshow(mask)
-        plt.show()
+        for a in range(len(infile)):
+            for b in range(len(infile[a])):
+                
+                data = infile[a][b][2]
+                mask = np.zeros((30,30))
+                
+                #start 14,15
+                rowCount = 2
+                start = 14
+                stop = 15
+                firstIter = True
+                thresh = 100
+                while start >= 0 and stop <= 29:
+                    for i in range(start, stop+1):
+                        for j in range(start, stop+1):
+                            if firstIter or data[i][j] >= thresh:
+                                mask[i][j] = 1
+                    firstIter = False
+                    start -= 1
+                    stop += 1
+                
+                infile[a][b].append(mask)
+#                 plt.imshow(data)
+#                 plt.show()
+#                 
+#                 plt.imshow(mask)
+#                 plt.show()
         #while not at edge and new additions made
         #get surrounding ring of prev center
         #if above thresh and at least 1 mask neighbor set to 1
