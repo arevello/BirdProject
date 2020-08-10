@@ -133,11 +133,11 @@ class ImageUtilities(object):
                     stop += 1
                 
                 infile[a][b].append(mask)
-#                 plt.imshow(data)
-#                 plt.show()
+                plt.imshow(data)
+                plt.show()
 #                 
-#                 plt.imshow(mask)
-#                 plt.show()
+                plt.imshow(mask)
+                plt.show()
         #while not at edge and new additions made
         #get surrounding ring of prev center
         #if above thresh and at least 1 mask neighbor set to 1

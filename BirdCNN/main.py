@@ -27,7 +27,7 @@ fileContents = []
 for i in range(len(csvFiles)):
     fileContents.append(fu.openCsvFile(csvFiles[i]))
 
-iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)
+#iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)
 #iu.dumpFile('D:\\trainImg.pkl')
 
 trainData = iu.openDump('D:\\trainImg.pkl')
