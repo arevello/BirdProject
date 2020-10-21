@@ -16,8 +16,8 @@ iu = imageUtils.ImageUtilities()
 #fu.searchFiles('D:\\', ".xlsx", True)
 
 #get csv files
-csvFiles,tifIdx = fu.searchFiles('D:\\', ".csv", pairWithTif=True)
-tifFiles = fu.searchFiles('D:\\', ".tif")
+csvFiles,tifIdx = fu.searchFiles('D:\\satImage\\', ".csv", pairWithTif=True)
+tifFiles = fu.searchFiles('D:\\satImage\\', ".tif")
 
 #13 x
 #14 y
@@ -27,10 +27,16 @@ fileContents = []
 for i in range(len(csvFiles)):
     fileContents.append(fu.openCsvFile(csvFiles[i]))
 
+#iu.kmedoidClustering(fileContents, 1)
+c = iu.printMedoids([796, 1543, 633, 1250, 1131, 172, 364, 1642], fileContents, 1)
+print('-----')
+print(c)
+print('-----')
+iu.getImagesForVIA(c, 800, tifFiles[0])
+
 #iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)
 #iu.dumpFile('D:\\trainImg.pkl')
 
-trainData = iu.openDump('D:\\trainImg.pkl')
-iu.generateMask(trainData)
-
-print(trainData[0][0])
+trainData = iu.openDump('D:\\satImage\\trainImg.pkl')
+#iu.createJPGs(trainData)
+#iu.generateMask(trainData)
