@@ -106,7 +106,7 @@ class ImageUtilities(object):
             gdal.Unlink(tifFiles[t])
             self.dumpFile.append(tifList)
             
-    def getImagesForVIA(self, centers, size, file):
+    def getImagesForVIA(self, centers, size, file, directory):
         idx = 0
         for c in centers:
             gdal.AllRegister()
@@ -148,7 +148,7 @@ class ImageUtilities(object):
                 
                 #TODO calculate birds in range and what to label them in txt file
                 
-                filename = 'D:/satImage/viaTest/' + str(idx) + '.jpg'
+                filename = 'D:/satImage/viaTest/' + directory + "/" + str(idx) + '.jpg'
                 
                 self.writeJPG(filename, r, g, b, len(r))
                 idx += 1

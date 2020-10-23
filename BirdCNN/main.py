@@ -29,10 +29,9 @@ for i in range(len(csvFiles)):
 
 #iu.kmedoidClustering(fileContents, 1)
 c = iu.printMedoids([796, 1543, 633, 1250, 1131, 172, 364, 1642], fileContents, 1)
-print('-----')
-print(c)
-print('-----')
-iu.getImagesForVIA(c, 800, tifFiles[0])
+#iu.getImagesForVIA(c, 800, tifFiles[0], "train")
+c2 = iu.printMedoids([173, 562, 1312], fileContents, 1)
+iu.getImagesForVIA(c2, 800, tifFiles[0], "val")
 
 #iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)
 #iu.dumpFile('D:\\trainImg.pkl')
