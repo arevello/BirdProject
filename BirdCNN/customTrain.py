@@ -15,6 +15,11 @@ sys.path.append(ROOT_DIR)  # To find local version of the library
 from mrcnn.visualize import display_instances
 from mrcnn.config import Config
 from mrcnn import model as modellib, utils
+from tensorflow.keras.backend import set_session
+
+import tensorflow as tfc
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
  
 # Path to trained weights file
 #COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
@@ -153,7 +158,8 @@ class CustomDataset(utils.Dataset):
         mask = np.zeros([info["height"], info["width"], len(info["polygons"])],
                         dtype=np.uint8)
         for i, p in enumerate(info["polygons"]):
-            rr, cc = skimage.draw.polygon(p['all_points_y'], p['all_points_x'])
+            #rr, cc = skimage.draw.polygon(p['all_points_y'], p['all_points_x'])
+            rr, cc = skimage.draw.rectangle((p['x'],p['y']), (p['width'],p['height']))
             mask[rr, cc, i] = 1
  
         # Return mask, and array of class IDs of each instance. Since we have
@@ -317,6 +323,11 @@ if __name__ == '__main__':
             IMAGES_PER_GPU = 1
         config = InferenceConfig()
     config.display()
+    config.ALLOW_GROWTH=True
+    sess = tfc.compat.v1.Session()
+    graph = tfc.compat.v1.get_default_graph()
+    
+    set_session(sess)
  
     # Create model
     if args.command == "train":
@@ -352,6 +363,9 @@ if __name__ == '__main__':
         model.keras_model._make_predict_function()
     else:
         model.load_weights(weights_path, by_name=True)
+        
+    init_op = tfc.initialize_all_variables()
+    sess.run(init_op)
  
     # Train or evaluate
     if args.command == "train":
