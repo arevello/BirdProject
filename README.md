@@ -1,7 +1,7 @@
 # BirdProject
 
 Uses a modified mask rcnn https://github.com/matterport/Mask_RCNN to train images from file. code not very clean right now
-copy dup files into mask rcnn to overwrite them
+copy model.py and utils.py files into mask rcnn to overwrite them
 
 use tf 1.15.0rc1 and keras 2.0.8
 
