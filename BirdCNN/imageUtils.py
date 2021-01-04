@@ -108,6 +108,7 @@ class ImageUtilities(object):
             
     def getImagesForVIA(self, centers, size, file, directory):
         idx = 0
+        print("getting images")
         for c in centers:
             gdal.AllRegister()
                 
@@ -148,7 +149,7 @@ class ImageUtilities(object):
                 
                 #TODO calculate birds in range and what to label them in txt file
                 
-                filename = 'D:/satImage/viaTest/' + directory + "/" + str(idx) + '.jpg'
+                filename = 'D:/satImage/viaTest3/' + directory + "/" + str(idx) + '.jpg'
                 
                 self.writeJPG(filename, r, g, b, len(r))
                 idx += 1

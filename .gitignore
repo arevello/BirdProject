@@ -48,3 +48,5 @@ Debug/main.obj
 Debug/TiffToPng.log
 main.cpp
 main.cpp
+*.png
+*.pyc

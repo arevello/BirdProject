@@ -31,7 +31,8 @@ for i in range(len(csvFiles)):
 c = iu.printMedoids([796, 1543, 633, 1250, 1131, 172, 364, 1642], fileContents, 1)
 #iu.getImagesForVIA(c, 800, tifFiles[0], "train")
 c2 = iu.printMedoids([173, 562, 1312], fileContents, 1)
-iu.getImagesForVIA(c2, 800, tifFiles[0], "val")
+iu.getImagesForVIA(c2, 256, tifFiles[0], "val")
+iu.getImagesForVIA(c, 256, tifFiles[0], "train")
 
 #iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)
 #iu.dumpFile('D:\\trainImg.pkl')

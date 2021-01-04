@@ -204,6 +204,37 @@ def resnet_graph(input_image, architecture, stage5=False, train_bn=True):
         C5 = x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c', train_bn=train_bn)
     else:
         C5 = None
+    #smaller
+    '''div = 2
+    assert architecture in ["resnet50", "resnet101"]
+    # Stage 1
+    x = KL.ZeroPadding2D((3, 3))(input_image)
+    x = KL.Conv2D(64, (7, 7), strides=(2, 2), name='conv1', use_bias=True)(x)
+    x = BatchNorm(name='bn_conv1')(x, training=train_bn)
+    x = KL.Activation('relu')(x)
+    C1 = x = KL.MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+    # Stage 2
+    x = conv_block(x, 3, [int(64/div), int(64/div), int(256/div)], stage=2, block='a', strides=(1, 1), train_bn=train_bn)
+    x = identity_block(x, 3, [int(64/div), int(64/div), int(256/div)], stage=2, block='b', train_bn=train_bn)
+    C2 = x = identity_block(x, 3, [int(64/div), int(64/div), int(256/div)], stage=2, block='c', train_bn=train_bn)
+    # Stage 3
+    x = conv_block(x, 3, [int(128/div), int(128/div), int(512/div)], stage=3, block='a', train_bn=train_bn)
+    x = identity_block(x, 3, [int(128/div), int(128/div), int(512/div)], stage=3, block='b', train_bn=train_bn)
+    x = identity_block(x, 3, [int(128/div), int(128/div), int(512/div)], stage=3, block='c', train_bn=train_bn)
+    C3 = x = identity_block(x, 3, [int(128/div), int(128/div), int(512/div)], stage=3, block='d', train_bn=train_bn)
+    # Stage 4
+    x = conv_block(x, 3, [int(256/div), int(256/div), int(1024/div)], stage=4, block='a', train_bn=train_bn)
+    block_count = {"resnet50": 5, "resnet101": 22}[architecture]
+    for i in range(block_count):
+        x = identity_block(x, 3, [int(256/div), int(256/div), int(1024/div)], stage=4, block=chr(98 + i), train_bn=train_bn)
+    C4 = x
+    # Stage 5
+    if stage5:
+        x = conv_block(x, 3, [int(512/div), int(512/div), int(2048/div)], stage=5, block='a', train_bn=train_bn)
+        x = identity_block(x, 3, [int(512/div), int(512/div), int(2048/div)], stage=5, block='b', train_bn=train_bn)
+        C5 = x = identity_block(x, 3, [int(512/div), int(512/div), int(2048/div)], stage=5, block='c', train_bn=train_bn)
+    else:
+        C5 = None'''
     return [C1, C2, C3, C4, C5]
 
 
@@ -700,7 +731,9 @@ def refine_detections_graph(rois, probs, deltas, window, config):
     # Class IDs per ROI
     class_ids = tf.argmax(probs, axis=1, output_type=tf.int32)
     # Class probability of the top class of each ROI
-    indices = tf.stack([tf.range(probs.shape[0]), class_ids], axis=1)
+    #fix
+    #indices = tf.stack([tf.range(probs.shape[0]), class_ids], axis=1)
+    indices = tf.stack([tf.range(tf.shape(probs)[0]), class_ids], axis = 1)
     class_scores = tf.gather_nd(probs, indices)
     # Class-specific bounding box deltas
     deltas_specific = tf.gather_nd(deltas, indices)
@@ -948,9 +981,12 @@ def fpn_classifier_graph(rois, feature_maps, image_meta,
     x = KL.TimeDistributed(KL.Dense(num_classes * 4, activation='linear'),
                            name='mrcnn_bbox_fc')(shared)
     # Reshape to [batch, num_rois, NUM_CLASSES, (dy, dx, log(dh), log(dw))]
+    #mrcnn_bbox = []
     s = K.int_shape(x)
-    mrcnn_bbox = KL.Reshape((-1, num_classes, 4), name="mrcnn_bbox")(x)
-    #mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
+    if s[1] == None:
+        mrcnn_bbox = KL.Reshape((-1, num_classes, 4), name="mrcnn_bbox")(x)
+    else:
+        mrcnn_bbox = KL.Reshape((s[1], num_classes, 4), name="mrcnn_bbox")(x)
 
     return mrcnn_class_logits, mrcnn_probs, mrcnn_bbox
 
@@ -972,35 +1008,38 @@ def build_fpn_mask_graph(rois, feature_maps, image_meta,
     """
     # ROI Pooling
     # Shape: [batch, num_rois, MASK_POOL_SIZE, MASK_POOL_SIZE, channels]
+    
+    div = 1
+    
     x = PyramidROIAlign([pool_size, pool_size],
                         name="roi_align_mask")([rois, image_meta] + feature_maps)
 
     # Conv layers
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
+    x = KL.TimeDistributed(KL.Conv2D(int(256/div), (3, 3), padding="same"),
                            name="mrcnn_mask_conv1")(x)
     x = KL.TimeDistributed(BatchNorm(),
                            name='mrcnn_mask_bn1')(x, training=train_bn)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
+    x = KL.TimeDistributed(KL.Conv2D(int(256/div), (3, 3), padding="same"),
                            name="mrcnn_mask_conv2")(x)
     x = KL.TimeDistributed(BatchNorm(),
                            name='mrcnn_mask_bn2')(x, training=train_bn)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
+    x = KL.TimeDistributed(KL.Conv2D(int(256/div), (3, 3), padding="same"),
                            name="mrcnn_mask_conv3")(x)
     x = KL.TimeDistributed(BatchNorm(),
                            name='mrcnn_mask_bn3')(x, training=train_bn)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
+    x = KL.TimeDistributed(KL.Conv2D(int(256/div), (3, 3), padding="same"),
                            name="mrcnn_mask_conv4")(x)
     x = KL.TimeDistributed(BatchNorm(),
                            name='mrcnn_mask_bn4')(x, training=train_bn)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
+    x = KL.TimeDistributed(KL.Conv2DTranspose(int(256/div), (2, 2), strides=2, activation="relu"),
                            name="mrcnn_mask_deconv")(x)
     x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"),
                            name="mrcnn_mask")(x)
@@ -2181,6 +2220,7 @@ class MaskRCNN():
 
         # Update the log directory
         self.set_log_dir(filepath)
+            
 
     def get_imagenet_weights(self):
         """Downloads ImageNet trained weights from Keras.
@@ -2583,7 +2623,8 @@ class MaskRCNN():
             log("image_metas", image_metas)
             log("anchors", anchors)
         # Run object detection
-        model.keras_model._make_predict_function()
+        #fix
+        #model.keras_model._make_predict_function()
         detections, _, _, mrcnn_mask, _, _, _ =\
             self.keras_model.predict([molded_images, image_metas, anchors], verbose=0)
         # Process detections
