@@ -26,6 +26,72 @@ class ImageUtilities(object):
     dumpFile = []
     
     #comment method to debug
+    
+    def getTifInfo(self, filename):
+        gdal.AllRegister()
+        fh = gdal.Open(filename, GA_ReadOnly)
+        transform = fh.GetGeoTransform()
+        xOrig = transform[0]
+        yOrig = transform[3]
+        pixelWidth = transform[1]
+        pixelHeight = transform[5]
+        gdal.Unlink(filename)
+        return xOrig, yOrig, pixelWidth, pixelHeight
+    
+    #returns list of centers of imgs to extract
+    #form [[center, [other idxs in img]],...]
+    def getCentersWithCounts(self, tifImg, xOrig, yOrig, xWidth, yWidth, csvFiles, tifIdx, minCount, fileContents, filename, trainWidth, trainHeight):
+        #print(fileContents[csvIdx][f].get('POINT_X'))
+        #format: [tifFile][csvFile][species, behavior, [data]]
+        centers = list()
+        for i in range(len(csvFiles)):
+            if tifImg == tifIdx[i]:
+                birdDict = dict()
+                selBirds = [0] * len(fileContents[i])
+                for f in range(len(fileContents[i])):
+                    if not birdDict.__contains__(fileContents[i][f].get('Species')):
+                        birdDict[fileContents[i][f].get('Species')] = 1
+                    else:
+                        birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
+                
+                #change to amt needed
+                for k in birdDict.keys():
+                    if birdDict[k] > minCount:
+                        birdDict[k] = minCount
+                
+                for k in birdDict.keys():
+                    
+                    tries = 0
+                    while birdDict[k] > 0 and tries < 100:
+                        tries = tries + 1
+                        chkIdx = random.randint(0, len(fileContents[i]) - 1)
+                        if selBirds[chkIdx] == 0 and k == fileContents[i][chkIdx].get('Species'):
+                            idxFriends = 0
+                            friends = []
+                            # check for other points in
+                            try:
+                                for f in range(len(fileContents[i])):
+                                    if self.mu.pointInBoxTif(float(fileContents[i][chkIdx].get('POINT_X')), float(fileContents[i][chkIdx].get('POINT_Y')), trainWidth * xWidth, trainHeight * yWidth, float(fileContents[i][f].get('POINT_X')), float(fileContents[i][f].get('POINT_Y'))):
+                                        idxFriends = idxFriends + 1
+                                        friends.append(f)
+                            except Exception as e:
+                                print("fuck")
+                            
+                            # do for all found points
+                            for f in friends:
+                                selBirds[f] = 1
+                                birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] - 1
+                            temp = list()
+                            temp.append(chkIdx)
+                            temp.append(friends)
+                            centers.append(temp)
+                            
+                    #TODO if no hits just loop through and find first ones if any exist
+                    
+                print(birdDict)
+            
+        return centers
+    
     def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents):
         gdal.AllRegister()
 
@@ -159,6 +225,7 @@ class ImageUtilities(object):
                 break
     #end debug comment
     
+    
     def assignMeds(self, coords, medI, medV):
         results = []
         idx = 0
@@ -191,9 +258,7 @@ class ImageUtilities(object):
             ret.append(coords[i])
         return ret
     
-    def kmedoidClustering(self, fileContents, csvIdx):
-        random.seed(10)
-        clusters = 8
+    def kmedoidClustering(self, fileContents, csvIdx, clusters):
         prevVar = 999999
         var = 0
         

@@ -19,7 +19,7 @@ class MathUtilities(object):
         return xOff, yOff
     
     def coordDistSqrd(self, pt1, pt2):
-        return (pt2[1] - pt1[1])**2 + (pt2[0] - pt1[0])**2
+        return (pt2[1] - pt1[1])**2 + (pt2[0] - pt1[0])**2 
     
     def closestList(self, pt, comparePts):
         idx = 0
@@ -32,8 +32,9 @@ class MathUtilities(object):
         
         return idx, dist
     
-    def pointInBox(self, boxCenter, boxWidth, boxHeight, point):
-        if(point[0] >= (boxCenter-(boxWidth/2)) and point[0] <= (boxCenter+(boxWidth/2))):
-            if(point[1] >= (boxCenter-(boxHeight/2)) and point[1] <= (boxCenter+(boxHeight/2))):
+    def pointInBoxTif(self, centerX, centerY, boxWidth, boxHeight, pointX, pointY):
+        #print(centerX, centerY, boxWidth, boxHeight, pointX, pointY)
+        if(pointX >= (centerX-(boxWidth/2)) and pointX <= (centerX+(boxWidth/2))):
+            if(pointY >= (centerY+(boxHeight/2)) and pointY <= (centerY-(boxHeight/2))):
                 return True
         return False
