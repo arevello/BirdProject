@@ -7,6 +7,7 @@ Created on Jun 8, 2020
 import random
 import fileUtils
 import imageUtils
+import os
 
 fu = fileUtils.FileUtilities()
 iu = imageUtils.ImageUtilities()
@@ -41,12 +42,35 @@ for i in range(len(csvFiles)):
 #iu.getImagesForVIA(c2, 256, tifFiles[0], "val")
 #iu.getImagesForVIA(c, 256, tifFiles[0], "train")
 
-#random.seed(0)
+#print(csvFiles[29])
+#exit()
+
+random.seed(0)
+
+fileCount = 0
+jsonStr = "{"
 
 for i in range(len(tifFiles)):
     xO, yO, xW, yW = iu.getTifInfo(tifFiles[i])
-    iu.getCentersWithCounts(0, xO, yO, xW, yW, csvFiles, tifIdx, 10, fileContents, tifFiles[i], trainWidth, trainHeight)
+    centerlist = iu.getCentersWithCounts(i, xO, yO, xW, yW, csvFiles, tifIdx, 10, fileContents, tifFiles[i], trainWidth, trainHeight)
+    justCenters = [row[0] for row in centerlist]
+    centerCsvIdx = [row[1] for row in centerlist]
     
+    #crop images
+    c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)
+    badCenters = iu.getImagesForVIA(c, trainWidth, tifFiles[i], "D:/satImage/viaTest4/temp", fileCount)
+    for b in range(len(badCenters)):
+        print("deleting",badCenters[b])
+        centerlist.pop(badCenters[b])
+    jsonTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest4/temp", fileContents)
+    jsonStr += jsonTempStr + ","
+
+jsonStr = jsonStr[:-1]
+    
+jsonStr += "}"
+fo = open("D:/satImage/viaTest4/temp/via_region_data.json", "w+")
+fo.write(jsonStr)
+fo.close()
 exit()
 
 iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)

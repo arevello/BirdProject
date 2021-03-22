@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 import random
+import os
 
 from osgeo import gdal
 from osgeo.gdalconst import *
@@ -39,7 +40,8 @@ class ImageUtilities(object):
         return xOrig, yOrig, pixelWidth, pixelHeight
     
     #returns list of centers of imgs to extract
-    #form [[center, [other idxs in img]],...]
+    #form [[center, csvFile, [other idxs in img]],...]
+    #TODO sort bird dict by lowest amnt first, getting lowers first will usually find highers
     def getCentersWithCounts(self, tifImg, xOrig, yOrig, xWidth, yWidth, csvFiles, tifIdx, minCount, fileContents, filename, trainWidth, trainHeight):
         #print(fileContents[csvIdx][f].get('POINT_X'))
         #format: [tifFile][csvFile][species, behavior, [data]]
@@ -66,31 +68,95 @@ class ImageUtilities(object):
                         tries = tries + 1
                         chkIdx = random.randint(0, len(fileContents[i]) - 1)
                         if selBirds[chkIdx] == 0 and k == fileContents[i][chkIdx].get('Species'):
-                            idxFriends = 0
-                            friends = []
-                            # check for other points in
-                            try:
-                                for f in range(len(fileContents[i])):
-                                    if self.mu.pointInBoxTif(float(fileContents[i][chkIdx].get('POINT_X')), float(fileContents[i][chkIdx].get('POINT_Y')), trainWidth * xWidth, trainHeight * yWidth, float(fileContents[i][f].get('POINT_X')), float(fileContents[i][f].get('POINT_Y'))):
-                                        idxFriends = idxFriends + 1
-                                        friends.append(f)
-                            except Exception as e:
-                                print("fuck")
+                            selBirds,birdDict,centers = self.getFriends(fileContents, i, chkIdx, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
                             
-                            # do for all found points
-                            for f in friends:
-                                selBirds[f] = 1
-                                birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] - 1
-                            temp = list()
-                            temp.append(chkIdx)
-                            temp.append(friends)
-                            centers.append(temp)
-                            
-                    #TODO if no hits just loop through and find first ones if any exist
+                #TODO if no hits just loop through and find first ones if any exist
+                for k in birdDict.keys():
+                    newadded = 0
+                    for r in range(len(fileContents[i])):
+                        if birdDict[k] <= 0:
+                            break
+                        if selBirds[r] == 0 and fileContents[i][r].get('Species') == k:
+                            newadded += 1
+                            selBirds,birdDict,centers = self.getFriends(fileContents, i, r, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
                     
-                print(birdDict)
-            
         return centers
+    
+    #looks for other birds inside an image centered at i and adds them to the centers list
+    #TODO make sure cant get repeat friends instead of just repeat centers???
+    def getFriends(self,fileContents,csvIdx,chkIdx,trainWidth,xWidth,trainHeight,yWidth,selBirds,birdDict,centers):
+        idxFriends = 0
+        friends = []
+        # check for other points in
+        try:
+            for f in range(len(fileContents[csvIdx])):
+                if self.mu.pointInBoxTif(float(fileContents[csvIdx][chkIdx].get('POINT_X')), float(fileContents[csvIdx][chkIdx].get('POINT_Y')), trainWidth * xWidth, trainHeight * yWidth, float(fileContents[csvIdx][f].get('POINT_X')), float(fileContents[csvIdx][f].get('POINT_Y'))):
+                    idxFriends = idxFriends + 1
+                    friends.append(f)
+        except Exception as e:
+            pass
+            #print(fileContents[i][chkIdx])
+        
+        # do for all found points
+        for f in friends:
+            selBirds[f] = 1
+            birdDict[fileContents[csvIdx][f].get('Species')] = birdDict[fileContents[csvIdx][f].get('Species')] - 1
+        temp = list()
+        temp.append(chkIdx)
+        temp.append(csvIdx)
+        temp.append([xWidth,yWidth])
+        temp.append(friends)
+        centers.append(temp)
+        if friends == []:
+            print("idiot", csvIdx)
+        return selBirds,birdDict,centers
+    
+    def buildViaJsons(self, centerlist, fileCount, directory, fileContents):
+        jsonStr = ""
+        for c in range(len(centerlist)):
+            filename = str(fileCount) + ".jpg"
+            filesize = os.path.getsize(directory + "/" + filename)
+            jsonStr += self.quote(filename + str(filesize)) + ":{" + self.jsonPair("filename",filename) + "," + self.jsonIntPair("size", filesize) + "," + self.quote("regions") + ":["
+            
+            centerX = (1000/2) - (30/2)
+            centerY = (1000/2) - (30/2)
+            centerLat = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_X'))
+            centerLon = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_Y'))
+
+            for f in range(len(centerlist[c][3])):
+                jsonStr += "{" + self.quote("shape_attributes") + ":{"
+                #TODO test rectangle vs approx mask to polygon
+                centerLatF = float(fileContents[centerlist[c][1]][centerlist[c][3][f]].get('POINT_X'))
+                centerLonF = float(fileContents[centerlist[c][1]][centerlist[c][3][f]].get('POINT_Y'))
+                distX = (centerLat / centerlist[c][2][0]) - (centerLatF / centerlist[c][2][0])
+                distY = (centerLon / centerlist[c][2][1]) - (centerLonF / centerlist[c][2][1])
+                fX = centerX - distX
+                fY = centerY - distY
+                w = 30
+                h = 30
+                #print(centerLat, centerLatF, distX, fX)
+                #print(centerLon, centerLonF, distY, fY)
+                birdType = fileContents[centerlist[c][1]][f].get('Species')
+                jsonStr += self.jsonPair("name", "rect") + "," + self.jsonIntPair("x", fX) + "," + self.jsonIntPair("y",fY) + "," + self.jsonIntPair("width", w) + "," + self.jsonIntPair("height", h) + "}"
+                jsonStr += "," + self.quote("region_attributes") + ":{" + self.jsonPair("BIRD", birdType) + "}},"
+                
+            
+            jsonStr = jsonStr[:-1]
+            
+            jsonStr += "]," + self.quote("file_attributes") + ":{}},"
+                
+            fileCount += 1
+        jsonStr = jsonStr[:-1]
+        return jsonStr,fileCount
+            
+    def jsonPair(self,str1,str2):
+        return self.quote(str1) + ":" + self.quote(str2)
+    
+    def jsonIntPair(self,str1,num):
+        return self.quote(str1) + ":" + str(num)
+    
+    def quote(self, str1):
+        return "\"" + str1 + "\"" 
     
     def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents):
         gdal.AllRegister()
@@ -172,10 +238,11 @@ class ImageUtilities(object):
             gdal.Unlink(tifFiles[t])
             self.dumpFile.append(tifList)
             
-    def getImagesForVIA(self, centers, size, file, directory):
-        idx = 0
+    def getImagesForVIA(self, centers, size, file, directory, fileIdx):
+        badCenters = []
+        idx = fileIdx
         print("getting images")
-        for c in centers:
+        for c in range(len(centers)):
             gdal.AllRegister()
                 
             fh = gdal.Open(file, GA_ReadOnly)
@@ -198,7 +265,7 @@ class ImageUtilities(object):
             pixelWidth = transform[1]
             pixelHeight = transform[5]
             try:
-                xOff, yOff = self.mu.getPixelCoords(c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
+                xOff, yOff = self.mu.getPixelCoords(centers[c][0], centers[c][1], xOrig, yOrig, pixelWidth, pixelHeight)
             
                 data = []
                 for i in range(fh.RasterCount):
@@ -215,14 +282,16 @@ class ImageUtilities(object):
                 
                 #TODO calculate birds in range and what to label them in txt file
                 
-                filename = 'D:/satImage/viaTest3/' + directory + "/" + str(idx) + '.jpg'
+                filename = directory + "/" + str(idx) + '.jpg'
                 
                 self.writeJPG(filename, r, g, b, len(r))
                 idx += 1
             except Exception as e:
                 print(e)
                 print("issue with file", file)
-                break
+                badCenters.append(c)
+                #print(xOff, yOff, c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
+        return badCenters
     #end debug comment
     
     
@@ -245,17 +314,12 @@ class ImageUtilities(object):
             total += medDists[i][1]
         return total   
     
-    def printMedoids(self, idxs, fileContents, csvIdx):
-        coords = []
-        for f in range(len(fileContents[csvIdx])):
-            x = float(fileContents[csvIdx][f].get('POINT_X'))
-            y = float(fileContents[csvIdx][f].get('POINT_Y'))
-            coords.append([x,y])
-            
+    def getMedoids(self, idxs, fileContents, csvIdx):            
         ret = []
-        for i in idxs:
-            print(coords[i])
-            ret.append(coords[i])
+        for i in range(len(idxs)):
+            x = float(fileContents[csvIdx[i]][idxs[i]].get('POINT_X'))
+            y = float(fileContents[csvIdx[i]][idxs[i]].get('POINT_Y'))
+            ret.append([x,y])
         return ret
     
     def kmedoidClustering(self, fileContents, csvIdx, clusters):

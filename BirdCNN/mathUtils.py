@@ -13,6 +13,8 @@ class MathUtilities(object):
         '''
     
     def getPixelCoords(self, xPt, yPt, xOrigin, yOrigin, pixelWidth, pixelHeight):
+#         xOff = abs(int(abs((float(xPt) - xOrigin)) / pixelWidth))
+#         yOff = abs(int(abs((float(yPt) - yOrigin)) / pixelHeight))
         xOff = int((float(xPt) - xOrigin) / pixelWidth)
         yOff = int((float(yPt) - yOrigin) / pixelHeight)
         
