@@ -48,7 +48,8 @@ for i in range(len(csvFiles)):
 random.seed(0)
 
 fileCount = 0
-jsonStr = "{"
+jsonTrainStr = "{"
+jsonTestStr = "{"
 
 for i in range(len(tifFiles)):
     xO, yO, xW, yW = iu.getTifInfo(tifFiles[i])
@@ -56,21 +57,34 @@ for i in range(len(tifFiles)):
     justCenters = [row[0] for row in centerlist]
     centerCsvIdx = [row[1] for row in centerlist]
     
+    amtOfTest = int(len(centerlist) * .1)
+    testIdxs = []
+    for i in range(amtOfTest):
+        testIdxs.append(random.randint(0, len(centerlist) - 1))
+    
     #crop images
-    c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)
-    badCenters = iu.getImagesForVIA(c, trainWidth, tifFiles[i], "D:/satImage/viaTest4/temp", fileCount)
+    c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)    
+    badCenters = iu.getImagesForVIA(c, trainWidth, tifFiles[i], "D:/satImage/viaTest4", fileCount, testIdxs)
+    idxDif = 0
     for b in range(len(badCenters)):
         print("deleting",badCenters[b])
-        centerlist.pop(badCenters[b])
-    jsonTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest4/temp", fileContents)
-    jsonStr += jsonTempStr + ","
+        centerlist.pop(badCenters[b] - idxDif)
+        idxDif += 1
+    jsonTrainTempStr,jsonTestTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest4", fileContents, testIdxs, trainWidth, 30)
+    jsonTrainStr += jsonTrainTempStr + ","
+    jsonTestStr += jsonTestTempStr + ","
 
-jsonStr = jsonStr[:-1]
+jsonTrainStr = jsonTrainStr[:-1]
+jsonTestStr = jsonTestStr[:-1]
     
-jsonStr += "}"
-fo = open("D:/satImage/viaTest4/temp/via_region_data.json", "w+")
-fo.write(jsonStr)
-fo.close()
+jsonTrainStr += "}"
+jsonTestStr += "}"
+trainJsonFile = open("D:/satImage/viaTest4/train/via_region_data.json", "w+")
+testJsonFile = open("D:/satImage/viaTest4/val/via_region_data.json", "w+")
+trainJsonFile.write(jsonTrainStr)
+testJsonFile.write(jsonTestStr)
+trainJsonFile.close()
+testJsonFile.close()
 exit()
 
 iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)

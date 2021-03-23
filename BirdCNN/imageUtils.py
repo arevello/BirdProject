@@ -60,6 +60,9 @@ class ImageUtilities(object):
                 for k in birdDict.keys():
                     if birdDict[k] > minCount:
                         birdDict[k] = minCount
+                        
+                print(birdDict)
+                exit()
                 
                 for k in birdDict.keys():
                     
@@ -111,15 +114,27 @@ class ImageUtilities(object):
             print("idiot", csvIdx)
         return selBirds,birdDict,centers
     
-    def buildViaJsons(self, centerlist, fileCount, directory, fileContents):
-        jsonStr = ""
+    def buildViaJsons(self, centerlist, fileCount, directory, fileContents, testIdxs, imageWidth, boxWidth):
+        jsonTestStr = ""
+        jsonTrainStr = ""
         for c in range(len(centerlist)):
+            
+            trainImage = True
+            for i in range(len(testIdxs)):
+                if testIdxs[i] == c:
+                    trainImage = False
+            if trainImage:
+                myDirectory = directory + "/train"
+            else:
+                myDirectory = directory + "/val" 
+                    
+            jsonStr = ""
             filename = str(fileCount) + ".jpg"
-            filesize = os.path.getsize(directory + "/" + filename)
+            filesize = os.path.getsize(myDirectory + "/" + filename)
             jsonStr += self.quote(filename + str(filesize)) + ":{" + self.jsonPair("filename",filename) + "," + self.jsonIntPair("size", filesize) + "," + self.quote("regions") + ":["
             
-            centerX = (1000/2) - (30/2)
-            centerY = (1000/2) - (30/2)
+            centerX = (imageWidth/2) - (boxWidth/2)
+            centerY = (imageWidth/2) - (boxWidth/2)
             centerLat = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_X'))
             centerLon = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_Y'))
 
@@ -144,10 +159,16 @@ class ImageUtilities(object):
             jsonStr = jsonStr[:-1]
             
             jsonStr += "]," + self.quote("file_attributes") + ":{}},"
+                    
+            if trainImage:
+                jsonTrainStr += jsonStr
+            else:
+                jsonTestStr += jsonStr
                 
             fileCount += 1
-        jsonStr = jsonStr[:-1]
-        return jsonStr,fileCount
+        jsonTrainStr = jsonTrainStr[:-1]
+        jsonTestStr = jsonTestStr[:-1]
+        return jsonTrainStr,jsonTestStr,fileCount
             
     def jsonPair(self,str1,str2):
         return self.quote(str1) + ":" + self.quote(str2)
@@ -238,7 +259,7 @@ class ImageUtilities(object):
             gdal.Unlink(tifFiles[t])
             self.dumpFile.append(tifList)
             
-    def getImagesForVIA(self, centers, size, file, directory, fileIdx):
+    def getImagesForVIA(self, centers, size, file, directory, fileIdx, testIdxs):
         badCenters = []
         idx = fileIdx
         print("getting images")
@@ -282,7 +303,14 @@ class ImageUtilities(object):
                 
                 #TODO calculate birds in range and what to label them in txt file
                 
-                filename = directory + "/" + str(idx) + '.jpg'
+                trainImage = True
+                for i in range(len(testIdxs)):
+                    if testIdxs[i] == c:
+                        trainImage = False
+                if trainImage:
+                    filename = directory + "/train/" + str(idx) + '.jpg'
+                else:
+                    filename = directory + "/val/" + str(idx) + '.jpg'
                 
                 self.writeJPG(filename, r, g, b, len(r))
                 idx += 1
