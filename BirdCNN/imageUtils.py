@@ -61,8 +61,6 @@ class ImageUtilities(object):
                     if birdDict[k] > minCount:
                         birdDict[k] = minCount
                         
-                print(birdDict)
-                exit()
                 
                 for k in birdDict.keys():
                     
@@ -133,8 +131,8 @@ class ImageUtilities(object):
             filesize = os.path.getsize(myDirectory + "/" + filename)
             jsonStr += self.quote(filename + str(filesize)) + ":{" + self.jsonPair("filename",filename) + "," + self.jsonIntPair("size", filesize) + "," + self.quote("regions") + ":["
             
-            centerX = (imageWidth/2) - (boxWidth/2)
-            centerY = (imageWidth/2) - (boxWidth/2)
+            centerX = int((imageWidth/2) - (boxWidth/2))
+            centerY = int((imageWidth/2) - (boxWidth/2))
             centerLat = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_X'))
             centerLon = float(fileContents[centerlist[c][1]][centerlist[c][0]].get('POINT_Y'))
 
@@ -143,8 +141,8 @@ class ImageUtilities(object):
                 #TODO test rectangle vs approx mask to polygon
                 centerLatF = float(fileContents[centerlist[c][1]][centerlist[c][3][f]].get('POINT_X'))
                 centerLonF = float(fileContents[centerlist[c][1]][centerlist[c][3][f]].get('POINT_Y'))
-                distX = (centerLat / centerlist[c][2][0]) - (centerLatF / centerlist[c][2][0])
-                distY = (centerLon / centerlist[c][2][1]) - (centerLonF / centerlist[c][2][1])
+                distX = int((centerLat / centerlist[c][2][0]) - (centerLatF / centerlist[c][2][0]))
+                distY = int((centerLon / centerlist[c][2][1]) - (centerLonF / centerlist[c][2][1]))
                 fX = centerX - distX
                 fY = centerY - distY
                 w = 30

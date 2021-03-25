@@ -12,8 +12,8 @@ import os
 fu = fileUtils.FileUtilities()
 iu = imageUtils.ImageUtilities()
 
-trainWidth = 1000
-trainHeight = 1000
+trainWidth = 800
+trainHeight = 800
 
 #fu.removeCsvFiles('D:\\')
 
@@ -71,8 +71,9 @@ for i in range(len(tifFiles)):
         centerlist.pop(badCenters[b] - idxDif)
         idxDif += 1
     jsonTrainTempStr,jsonTestTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest4", fileContents, testIdxs, trainWidth, 30)
-    jsonTrainStr += jsonTrainTempStr + ","
-    jsonTestStr += jsonTestTempStr + ","
+    if len(centerlist) != 0:
+        jsonTrainStr += jsonTrainTempStr + ","
+        jsonTestStr += jsonTestTempStr + ","
 
 jsonTrainStr = jsonTrainStr[:-1]
 jsonTestStr = jsonTestStr[:-1]
