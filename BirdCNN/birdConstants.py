@@ -28,7 +28,8 @@ class BirdConstants(object):
     TernSPP = 15
     OTHER = 16
     
-    specieStr = ["HERG", "GBBG", "COEI", "TERN", "DCCO", "CANG", "GBHE", "LAGU", "SNEG", "BAEA", "GLIB", "BCNE", "BLGU", "ATPU", "Tern spp", "Other"]
+    specieStrAll = ["HERG", "GBBG", "COEI", "TERN", "DCCO", "CANG", "GBHE", "LAGU", "SNEG", "BAEA", "GLIB", "BCNE", "BLGU", "ATPU", "Tern spp", "Other"]
+    specieStrUseful = ["HERG", "GBBG", "DCCO", "COEI", "Tern spp"]
     
     #numSpeciesClass = 9
     

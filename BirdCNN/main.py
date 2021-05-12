@@ -12,8 +12,8 @@ import os
 fu = fileUtils.FileUtilities()
 iu = imageUtils.ImageUtilities()
 
-trainWidth = 800
-trainHeight = 800
+trainWidth = 608
+trainHeight = 608
 
 #fu.removeCsvFiles('D:\\')
 
@@ -45,47 +45,62 @@ for i in range(len(csvFiles)):
 #print(csvFiles[29])
 #exit()
 
-random.seed(0)
+'''birdDict = dict()
+for i in range(len(csvFiles)):
+    for f in range(len(fileContents[i])):
+        if not birdDict.__contains__(fileContents[i][f].get('Species')):
+            birdDict[fileContents[i][f].get('Species')] = 1
+        else:
+            birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
+print(birdDict)
+exit()'''
+
+#random.seed(0)
 
 fileCount = 0
 jsonTrainStr = "{"
 jsonTestStr = "{"
 
+useDarknet = True
+
 for i in range(len(tifFiles)):
     xO, yO, xW, yW = iu.getTifInfo(tifFiles[i])
-    centerlist = iu.getCentersWithCounts(i, xO, yO, xW, yW, csvFiles, tifIdx, 10, fileContents, tifFiles[i], trainWidth, trainHeight)
+    centerlist = iu.getCentersWithCounts(i, xO, yO, xW, yW, csvFiles, tifIdx, 0, fileContents, tifFiles[i], trainWidth, trainHeight)
     justCenters = [row[0] for row in centerlist]
     centerCsvIdx = [row[1] for row in centerlist]
     
-    amtOfTest = int(len(centerlist) * .1)
     testIdxs = []
-    for i in range(amtOfTest):
-        testIdxs.append(random.randint(0, len(centerlist) - 1))
+    if False:
+        amtOfTest = int(len(centerlist) * .1)
+        for j in range(amtOfTest):
+            testIdxs.append(random.randint(0, len(centerlist) - 1))
     
     #crop images
-    c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)    
-    badCenters = iu.getImagesForVIA(c, trainWidth, tifFiles[i], "D:/satImage/viaTest4", fileCount, testIdxs)
+    c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)
+    badCenters = iu.getImagesForVIA(fileContents, centerlist, c, trainWidth, tifFiles[i], "D:/satImage/viaTest5", fileCount, testIdxs, darknetFiles=useDarknet)
     idxDif = 0
     for b in range(len(badCenters)):
-        print("deleting",badCenters[b])
+        #print("deleting",badCenters[b])
         centerlist.pop(badCenters[b] - idxDif)
         idxDif += 1
-    jsonTrainTempStr,jsonTestTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest4", fileContents, testIdxs, trainWidth, 30)
-    if len(centerlist) != 0:
+    if useDarknet == False:
+        jsonTrainTempStr,jsonTestTempStr,fileCount = iu.buildViaJsons(centerlist, fileCount, "D:/satImage/viaTest5", fileContents, testIdxs, trainWidth, 30)
+    if len(centerlist) != 0 and useDarknet == False:
         jsonTrainStr += jsonTrainTempStr + ","
         jsonTestStr += jsonTestTempStr + ","
 
-jsonTrainStr = jsonTrainStr[:-1]
-jsonTestStr = jsonTestStr[:-1]
-    
-jsonTrainStr += "}"
-jsonTestStr += "}"
-trainJsonFile = open("D:/satImage/viaTest4/train/via_region_data.json", "w+")
-testJsonFile = open("D:/satImage/viaTest4/val/via_region_data.json", "w+")
-trainJsonFile.write(jsonTrainStr)
-testJsonFile.write(jsonTestStr)
-trainJsonFile.close()
-testJsonFile.close()
+if useDarknet == False:
+    jsonTrainStr = jsonTrainStr[:-1]
+    jsonTestStr = jsonTestStr[:-1]
+        
+    jsonTrainStr += "}"
+    jsonTestStr += "}"
+    trainJsonFile = open("D:/satImage/viaTest5/train/via_region_data.json", "w+")
+    testJsonFile = open("D:/satImage/viaTest5/val/via_region_data.json", "w+")
+    trainJsonFile.write(jsonTrainStr)
+    testJsonFile.write(jsonTestStr)
+    trainJsonFile.close()
+    testJsonFile.close()
 exit()
 
 iu.parseImages(tifFiles, tifIdx, csvFiles, fileContents)

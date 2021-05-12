@@ -48,39 +48,46 @@ class ImageUtilities(object):
         centers = list()
         for i in range(len(csvFiles)):
             if tifImg == tifIdx[i]:
-                birdDict = dict()
-                selBirds = [0] * len(fileContents[i])
-                for f in range(len(fileContents[i])):
-                    if not birdDict.__contains__(fileContents[i][f].get('Species')):
-                        birdDict[fileContents[i][f].get('Species')] = 1
-                    else:
-                        birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
-                
-                #change to amt needed
-                for k in birdDict.keys():
-                    if birdDict[k] > minCount:
-                        birdDict[k] = minCount
-                        
-                
-                for k in birdDict.keys():
+                if minCount > 0:
+                    birdDict = dict()
+                    selBirds = [0] * len(fileContents[i])
+                    for f in range(len(fileContents[i])):
+                        if not birdDict.__contains__(fileContents[i][f].get('Species')):
+                            birdDict[fileContents[i][f].get('Species')] = 1
+                        else:
+                            birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
                     
-                    tries = 0
-                    while birdDict[k] > 0 and tries < 100:
-                        tries = tries + 1
-                        chkIdx = random.randint(0, len(fileContents[i]) - 1)
-                        if selBirds[chkIdx] == 0 and k == fileContents[i][chkIdx].get('Species'):
-                            selBirds,birdDict,centers = self.getFriends(fileContents, i, chkIdx, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
+                    #change to amt needed
+                    for k in birdDict.keys():
+                        if birdDict[k] > minCount:
+                            birdDict[k] = minCount
                             
-                #TODO if no hits just loop through and find first ones if any exist
-                for k in birdDict.keys():
-                    newadded = 0
-                    for r in range(len(fileContents[i])):
-                        if birdDict[k] <= 0:
-                            break
-                        if selBirds[r] == 0 and fileContents[i][r].get('Species') == k:
-                            newadded += 1
-                            selBirds,birdDict,centers = self.getFriends(fileContents, i, r, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
                     
+                    for k in birdDict.keys():
+                        
+                        tries = 0
+                        while birdDict[k] > 0 and tries < 100:
+                            tries = tries + 1
+                            chkIdx = random.randint(0, len(fileContents[i]) - 1)
+                            if selBirds[chkIdx] == 0 and k == fileContents[i][chkIdx].get('Species'):
+                                selBirds,birdDict,centers = self.getFriends(fileContents, i, chkIdx, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
+                                
+                    #TODO if no hits just loop through and find first ones if any exist
+                    for k in birdDict.keys():
+                        print(k, birdDict[k])
+                        newadded = 0
+                        for r in range(len(fileContents[i])):
+                            if birdDict[k] <= 0:
+                                break
+                            if selBirds[r] == 0 and fileContents[i][r].get('Species') == k:
+                                newadded += 1
+                                selBirds,birdDict,centers = self.getFriends(fileContents, i, r, trainWidth, xWidth, trainHeight, yWidth, selBirds, birdDict, centers)
+                else:
+                    selBirds = [0] * len(fileContents[i])
+                    birdDict = dict()
+                    for r in range(len(fileContents[i])):
+                        if selBirds[r] == 0 and birdConstants.BirdConstants.specieStrUseful.__contains__(fileContents[i][r].get('Species')):
+                            selBirds,birdDict,centers = self.getFriends(fileContents, i, r, trainWidth, xWidth, trainHeight, yWidth, selBirds, None, centers)
         return centers
     
     #looks for other birds inside an image centered at i and adds them to the centers list
@@ -101,7 +108,8 @@ class ImageUtilities(object):
         # do for all found points
         for f in friends:
             selBirds[f] = 1
-            birdDict[fileContents[csvIdx][f].get('Species')] = birdDict[fileContents[csvIdx][f].get('Species')] - 1
+            if birdDict != None:
+                birdDict[fileContents[csvIdx][f].get('Species')] = birdDict[fileContents[csvIdx][f].get('Species')] - 1
         temp = list()
         temp.append(chkIdx)
         temp.append(csvIdx)
@@ -177,6 +185,7 @@ class ImageUtilities(object):
     def quote(self, str1):
         return "\"" + str1 + "\"" 
     
+    #get 30x30 training images
     def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents):
         gdal.AllRegister()
 
@@ -257,10 +266,11 @@ class ImageUtilities(object):
             gdal.Unlink(tifFiles[t])
             self.dumpFile.append(tifList)
             
-    def getImagesForVIA(self, centers, size, file, directory, fileIdx, testIdxs):
+    def getImagesForVIA(self, fileContents, centers, medoids, size, file, directory, fileIdx, testIdxs, darknetFiles=False):
         badCenters = []
         idx = fileIdx
         print("getting images")
+        birdDict = dict()
         for c in range(len(centers)):
             gdal.AllRegister()
                 
@@ -283,9 +293,9 @@ class ImageUtilities(object):
             yOrig = transform[3]
             pixelWidth = transform[1]
             pixelHeight = transform[5]
-            try:
-                xOff, yOff = self.mu.getPixelCoords(centers[c][0], centers[c][1], xOrig, yOrig, pixelWidth, pixelHeight)
             
+            try:
+                xOff, yOff = self.mu.getPixelCoords(medoids[c][0], medoids[c][1], xOrig, yOrig, pixelWidth, pixelHeight)
                 data = []
                 for i in range(fh.RasterCount):
                     #csvList.append(i)
@@ -299,24 +309,61 @@ class ImageUtilities(object):
                 g = data[1]
                 b = data[0]
                 
-                #TODO calculate birds in range and what to label them in txt file
-                
-                trainImage = True
-                for i in range(len(testIdxs)):
-                    if testIdxs[i] == c:
-                        trainImage = False
-                if trainImage:
-                    filename = directory + "/train/" + str(idx) + '.jpg'
+                if darknetFiles:
+                    centerX = int((size/2) - (30/2))
+                    centerY = int((size/2) - (30/2))
+                    centerLat = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_X'))
+                    centerLon = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_Y'))
+                    ret = ""
+                    for f in range(len(centers[c][3])):
+                        
+                        #TODO test rectangle vs approx mask to polygon
+                        centerLatF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X'))
+                        centerLonF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y'))
+                        distX = int((centerLat / centers[c][2][0]) - (centerLatF / centers[c][2][0]))
+                        distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
+                        fX = centerX - distX
+                        fY = centerY - distY
+                        w = 30
+                        h = 30
+                        #print(centerLat, centerLatF, distX, fX)
+                        #print(centerLon, centerLonF, distY, fY)
+                        birdType = fileContents[centers[c][3][f]].get('Species')
+                        
+                        _x      = (fX+30/2) / size # relative position of center x of rect
+                        _y      = (fY+30/2) / size # relative position of center y of rect
+                        _width  = 30 / size
+                        _height = 30 / size
+                        
+                        ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                        if not birdDict.__contains__(birdType):
+                            birdDict[birdType] = 1
+                        else:
+                            birdDict[birdType] = birdDict[birdType] + 1
+                        
+                    jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                    txtFilename = directory + "/data/" + str(idx) + '.txt'
+                    fo = open(txtFilename, "w")
+                    fo.write(ret)
+                    fo.close()
                 else:
-                    filename = directory + "/val/" + str(idx) + '.jpg'
-                
-                self.writeJPG(filename, r, g, b, len(r))
+                    trainImage = True
+                    for i in range(len(testIdxs)):
+                        if testIdxs[i] == c:
+                            trainImage = False
+                    if trainImage:
+                        jpgFilename = directory + "/train/" + str(idx) + '.jpg'
+                    else:
+                        jpgFilename = directory + "/val/" + str(idx) + '.jpg'
+                        
+                self.writeJPG(jpgFilename, r, g, b, len(r))
                 idx += 1
             except Exception as e:
                 print(e)
-                print("issue with file", file)
+                #print("issue with file", file)
                 badCenters.append(c)
                 #print(xOff, yOff, c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
+        print(file, birdDict)
         return badCenters
     #end debug comment
     
@@ -473,7 +520,7 @@ class ImageUtilities(object):
                 
                 if infile[a][b][0] != 2 and infile[a][b][0] != 0: 
                     infile[a][b].append(mask)
-                    print(birdConstants.BirdConstants.specieStr[infile[a][b][0]], infile[a][b][0])
+                    print(birdConstants.BirdConstants.specieStrAll[infile[a][b][0]], infile[a][b][0])
                     plt.imshow(data)
                     plt.show()
     #                 
