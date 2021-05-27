@@ -63,6 +63,8 @@ jsonTestStr = "{"
 
 useDarknet = True
 
+birdDict = dict()
+birdDictTest = dict()
 for i in range(len(tifFiles)):
     xO, yO, xW, yW = iu.getTifInfo(tifFiles[i])
     centerlist = iu.getCentersWithCounts(i, xO, yO, xW, yW, csvFiles, tifIdx, 0, fileContents, tifFiles[i], trainWidth, trainHeight)
@@ -77,7 +79,7 @@ for i in range(len(tifFiles)):
     
     #crop images
     c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)
-    badCenters = iu.getImagesForVIA(fileContents, centerlist, c, trainWidth, tifFiles[i], "D:/satImage/viaTest5", fileCount, testIdxs, darknetFiles=useDarknet)
+    badCenters, birdDict, birdDictTest = iu.getImagesForVIA(fileContents, centerlist, c, trainWidth, tifFiles[i], "D:/satImage/viaTest5", fileCount, testIdxs, birdDict, birdDictTest, darknetFiles=useDarknet)
     idxDif = 0
     for b in range(len(badCenters)):
         #print("deleting",badCenters[b])
@@ -89,6 +91,9 @@ for i in range(len(tifFiles)):
         jsonTrainStr += jsonTrainTempStr + ","
         jsonTestStr += jsonTestTempStr + ","
 
+print(birdDict)
+print("with augments")
+print(birdDictTest)
 if useDarknet == False:
     jsonTrainStr = jsonTrainStr[:-1]
     jsonTestStr = jsonTestStr[:-1]

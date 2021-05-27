@@ -266,11 +266,17 @@ class ImageUtilities(object):
             gdal.Unlink(tifFiles[t])
             self.dumpFile.append(tifList)
             
-    def getImagesForVIA(self, fileContents, centers, medoids, size, file, directory, fileIdx, testIdxs, darknetFiles=False):
+    #no idea why python usual things arent working so just do it manually
+    def strToSpeciesUseful(self, spcStr):
+        for i in range(len(birdConstants.BirdConstants.specieStrUseful)):
+            if spcStr == birdConstants.BirdConstants.specieStrUseful[i]:
+                return i
+        return -1
+            
+    def getImagesForVIA(self, fileContents, centers, medoids, size, file, directory, fileIdx, testIdxs, birdDict, bdt, darknetFiles=False):
         badCenters = []
         idx = fileIdx
-        print("getting images")
-        birdDict = dict()
+        print("getting images from",file)
         for c in range(len(centers)):
             gdal.AllRegister()
                 
@@ -315,6 +321,7 @@ class ImageUtilities(object):
                     centerLat = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_X'))
                     centerLon = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_Y'))
                     ret = ""
+                    augment = False
                     for f in range(len(centers[c][3])):
                         
                         #TODO test rectangle vs approx mask to polygon
@@ -328,24 +335,131 @@ class ImageUtilities(object):
                         h = 30
                         #print(centerLat, centerLatF, distX, fX)
                         #print(centerLon, centerLonF, distY, fY)
-                        birdType = fileContents[centers[c][3][f]].get('Species')
+                        spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
+                        birdType = self.strToSpeciesUseful(spcStr)
+                        if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
+                            augment = True
                         
                         _x      = (fX+30/2) / size # relative position of center x of rect
                         _y      = (fY+30/2) / size # relative position of center y of rect
                         _width  = 30 / size
                         _height = 30 / size
                         
-                        ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
-                        if not birdDict.__contains__(birdType):
-                            birdDict[birdType] = 1
-                        else:
-                            birdDict[birdType] = birdDict[birdType] + 1
+                        #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                        if birdType != -1:
+                            ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                            if not birdDict.__contains__(spcStr):
+                                birdDict[spcStr] = 1
+                            else:
+                                birdDict[spcStr] = birdDict[spcStr] + 1
                         
                     jpgFilename = directory + "/data/" + str(idx) + '.jpg'
                     txtFilename = directory + "/data/" + str(idx) + '.txt'
                     fo = open(txtFilename, "w")
                     fo.write(ret)
                     fo.close()
+                    self.writeJPG(jpgFilename, r, g, b, len(r))
+                    idx += 1
+                    
+                    if augment:
+                        
+                        ret = ""
+                        for f in range(len(centers[c][3])):
+                        
+                            #TODO test rectangle vs approx mask to polygon
+                            centerLatF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X'))
+                            centerLonF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y'))
+                            distX = int((centerLat / centers[c][2][0]) - (centerLatF / centers[c][2][0]))
+                            distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
+                            fX = centerX - distX
+                            fY = centerY - distY
+                            w = 30
+                            h = 30
+                            #print(centerLat, centerLatF, distX, fX)
+                            #print(centerLon, centerLonF, distY, fY)
+                            spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
+                            birdType = self.strToSpeciesUseful(spcStr)
+                            if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
+                                augment = True
+                            
+                            _x      = (fX+30/2) / size # relative position of center x of rect
+                            _y      = (fY+30/2) / size # relative position of center y of rect
+                            _ytemp = _y
+                            _y = 1 - _x
+                            _x = _ytemp
+                            _width  = 30 / size
+                            _height = 30 / size
+                            
+                            #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                            if birdType != -1:
+                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_height) + " " + str(_width) +"\n"
+                                if not birdDict.__contains__(spcStr):
+                                    birdDict[spcStr] = 1
+                                else:
+                                    birdDict[spcStr] = birdDict[spcStr] + 1
+                        
+                        r = np.rot90(r)
+                        g = np.rot90(g)
+                        b = np.rot90(b)
+                        
+                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                        txtFilename = directory + "/data/" + str(idx) + '.txt'
+                        fo = open(txtFilename, "w")
+                        fo.write(ret)
+                        fo.close()
+                        self.writeJPG(jpgFilename, r, g, b, len(r))
+                        idx += 1
+                        
+                        ret = ""
+                        for f in range(len(centers[c][3])):
+                        
+                            #TODO test rectangle vs approx mask to polygon
+                            centerLatF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X'))
+                            centerLonF = float(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y'))
+                            distX = int((centerLat / centers[c][2][0]) - (centerLatF / centers[c][2][0]))
+                            distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
+                            fX = centerX - distX
+                            fY = centerY - distY
+                            w = 30
+                            h = 30
+                            #print(centerLat, centerLatF, distX, fX)
+                            #print(centerLon, centerLonF, distY, fY)
+                            spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
+                            birdType = self.strToSpeciesUseful(spcStr)
+                            if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
+                                augment = True
+                            
+                            _x      = (fX+30/2) / size # relative position of center x of rect
+                            _y      = (fY+30/2) / size # relative position of center y of rect
+                            _xtemp = _x
+                            _x = 1 - _y
+                            _y = _xtemp
+                            _width  = 30 / size
+                            _height = 30 / size
+                            
+                            #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                            if birdType != -1:
+                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_height) + " " + str(_width) +"\n"
+                                if not birdDict.__contains__(spcStr):
+                                    birdDict[spcStr] = 1
+                                else:
+                                    birdDict[spcStr] = birdDict[spcStr] + 1
+                        
+                        r = np.rot90(r)
+                        g = np.rot90(g)
+                        b = np.rot90(b)
+                        r = np.rot90(r)
+                        g = np.rot90(g)
+                        b = np.rot90(b)
+                        
+                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                        txtFilename = directory + "/data/" + str(idx) + '.txt'
+                        fo = open(txtFilename, "w")
+                        fo.write(ret)
+                        fo.close()
+                        self.writeJPG(jpgFilename, r, g, b, len(r))
+                        idx += 1
+                    
                 else:
                     trainImage = True
                     for i in range(len(testIdxs)):
@@ -354,19 +468,16 @@ class ImageUtilities(object):
                     if trainImage:
                         jpgFilename = directory + "/train/" + str(idx) + '.jpg'
                     else:
-                        jpgFilename = directory + "/val/" + str(idx) + '.jpg'
-                        
-                self.writeJPG(jpgFilename, r, g, b, len(r))
-                idx += 1
+                        jpgFilename = directory + "/val/" + str(idx) + '.jpg'    
+                    self.writeJPG(jpgFilename, r, g, b, len(r))
+                    idx += 1
             except Exception as e:
                 print(e)
-                #print("issue with file", file)
+                print("issue with file", file)
                 badCenters.append(c)
                 #print(xOff, yOff, c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
-        print(file, birdDict)
-        return badCenters
+        return badCenters, birdDict, bdt
     #end debug comment
-    
     
     def assignMeds(self, coords, medI, medV):
         results = []

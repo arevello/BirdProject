@@ -40,15 +40,14 @@ class BirdConstants(object):
     
     numBehaviorClass = 3
     
-    def strToSpecies(self, str):
-        idx = 0
-        while idx < len(self.specieStr):
-            if str == self.specieStr[idx]:
-                return idx
-            idx += 1
-        print("cant find match for ", str)
-        return 16
-
+#     def strToSpecies(self, spcStr):
+#         idx = 0
+#         while idx < len(self.specieStrAll):
+#             if spcStr == self.specieStrAll[idx]:
+#                 return idx
+#             idx += 1
+#         print("cant find match for ", spcStr)
+#         return 16
 
     def __init__(self):
         '''
