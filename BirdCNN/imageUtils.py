@@ -459,6 +459,25 @@ class ImageUtilities(object):
                         fo.close()
                         self.writeJPG(jpgFilename, r, g, b, len(r))
                         idx += 1
+                        
+                        contrast = -50.0
+                        factor = (259.0 * (contrast + 255.0)) / (255.0 * (259.0 - contrast))
+                        for r1 in range(len(r)):
+                            for r2 in range(len(r[r1])):
+                                r[r1][r2] = self.colorTruncate(round(factor * (r[r1][r2] - 128) + 128))
+                                g[r1][r2] = self.colorTruncate(round(factor * (g[r1][r2] - 128) + 128))
+                                b[r1][r2] = self.colorTruncate(round(factor * (b[r1][r2] - 128) + 128))
+#                         r = r * factor
+#                         g = g * factor
+#                         b = b * factor
+                        
+                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                        txtFilename = directory + "/data/" + str(idx) + '.txt'
+                        fo = open(txtFilename, "w")
+                        fo.write(ret)
+                        fo.close()
+                        self.writeJPG(jpgFilename, r, g, b, len(r))
+                        idx += 1
                     
                 else:
                     trainImage = True
@@ -478,6 +497,13 @@ class ImageUtilities(object):
                 #print(xOff, yOff, c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
         return badCenters, birdDict, bdt
     #end debug comment
+    
+    def colorTruncate(self, c):
+        if c < 0:
+            return 0
+        elif c > 255:
+            return 255
+        return c
     
     def assignMeds(self, coords, medI, medV):
         results = []
