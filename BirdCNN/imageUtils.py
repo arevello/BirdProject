@@ -461,16 +461,35 @@ class ImageUtilities(object):
                         idx += 1
                         
                         contrast = -50.0
-                        factor = (259.0 * (contrast + 255.0)) / (255.0 * (259.0 - contrast))
-                        for r1 in range(len(r)):
-                            for r2 in range(len(r[r1])):
-                                r[r1][r2] = self.colorTruncate(round(factor * (r[r1][r2] - 128) + 128))
-                                g[r1][r2] = self.colorTruncate(round(factor * (g[r1][r2] - 128) + 128))
-                                b[r1][r2] = self.colorTruncate(round(factor * (b[r1][r2] - 128) + 128))
+                        factor = 259.0 * (contrast + 255.0) / (255.0 * (259.0 - contrast))
+#                         for r1 in range(len(r)):
+#                             for r2 in range(len(r[r1])):
+#                                 r[r1][r2] = self.colorTruncate(round(factor * (r[r1][r2] - 128) + 128))
+#                                 g[r1][r2] = self.colorTruncate(round(factor * (g[r1][r2] - 128) + 128))
+#                                 b[r1][r2] = self.colorTruncate(round(factor * (b[r1][r2] - 128) + 128))
+#                         print(r)
 #                         r = r * factor
 #                         g = g * factor
 #                         b = b * factor
-                        
+
+                        r = np.add(r, -128)
+                        r = r*factor
+                        r = r + 128
+                        r = np.clip(r, 0, 255)
+                        r = np.round(r)
+                         
+                        g = np.add(g, -128)
+                        g = g*factor
+                        g = g + 128
+                        g = np.clip(g, 0, 255)
+                        g = np.round(g)
+                         
+                        b = np.add(b, -128)
+                        b = b*factor
+                        b = b + 128
+                        b = np.clip(b, 0, 255)  
+                        b = np.round(b)
+                         
                         jpgFilename = directory + "/data/" + str(idx) + '.jpg'
                         txtFilename = directory + "/data/" + str(idx) + '.txt'
                         fo = open(txtFilename, "w")
