@@ -4,6 +4,9 @@ Created on Jun 8, 2020
 @author: Alex
 '''
 
+# python3 Users\Alex\Documents\GItHub\BirdProject\BirdCNN\main.py
+#ssh -L 5919:localhost:5919 arevello@katahdin.acg.maine.edu
+
 import random
 import fileUtils
 import imageUtils
@@ -17,12 +20,22 @@ trainHeight = 608
 
 #fu.removeCsvFiles('D:\\')
 
+#process for new folder
 #convert to csv
-#fu.searchFiles('D:\\', ".xlsx", True)
+#fu.searchFiles('D:\\051721_Data_Transfer\\', ".xls", True)
+#fu.searchFiles('D:\\051721_Data_Transfer\\', ".xlsx", True)
+#exit()
+
+#then rest
 
 #get csv files
+fileCount = 9411
 csvFiles,tifIdx = fu.searchFiles('D:\\satImage\\', ".csv", pairWithTif=True)
 tifFiles = fu.searchFiles('D:\\satImage\\', ".tif")
+
+# fileCount = 0 #13107
+# csvFiles,tifIdx = fu.searchFiles('D:\\051721_Data_Transfer\\', ".csv", pairWithTif=True)
+# tifFiles = fu.searchFiles('D:\\051721_Data_Transfer\\', ".tif")
 
 #13 x
 #14 y
@@ -45,21 +58,22 @@ for i in range(len(csvFiles)):
 #print(csvFiles[29])
 #exit()
 
-'''birdDict = dict()
-for i in range(len(csvFiles)):
-    for f in range(len(fileContents[i])):
-        if not birdDict.__contains__(fileContents[i][f].get('Species')):
-            birdDict[fileContents[i][f].get('Species')] = 1
-        else:
-            birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
-print(birdDict)
-exit()'''
+#check bird counts from files
+# birdDict = dict()
+# for i in range(len(csvFiles)):
+#     for f in range(len(fileContents[i])):
+#         if not birdDict.__contains__(fileContents[i][f].get('Species')):
+#             birdDict[fileContents[i][f].get('Species')] = 1
+#         else:
+#             birdDict[fileContents[i][f].get('Species')] = birdDict[fileContents[i][f].get('Species')] + 1
+# print(birdDict)
+# exit()
 
 #random.seed(0)
 
-fileCount = 0
 jsonTrainStr = "{"
 jsonTestStr = "{"
+highlightSize = 30
 
 useDarknet = True
 
@@ -79,7 +93,7 @@ for i in range(len(tifFiles)):
     
     #crop images
     c = iu.getMedoids(justCenters, fileContents, centerCsvIdx)
-    badCenters, birdDict, birdDictTest = iu.getImagesForVIA(fileContents, centerlist, c, trainWidth, tifFiles[i], "D:/satImage/viaTest5", fileCount, testIdxs, birdDict, birdDictTest, darknetFiles=useDarknet)
+    badCenters, birdDict, birdDictTest, fileCount = iu.getImagesForVIA(fileContents, centerlist, c, trainWidth, tifFiles[i], "D:/satImage/viaTest5", fileCount, testIdxs, birdDict, birdDictTest, highlightSize, darknetFiles=useDarknet)
     idxDif = 0
     for b in range(len(badCenters)):
         #print("deleting",badCenters[b])

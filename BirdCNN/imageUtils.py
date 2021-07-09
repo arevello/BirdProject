@@ -118,9 +118,11 @@ class ImageUtilities(object):
         centers.append(temp)
         if friends == []:
             print("idiot", csvIdx)
+            print(fileContents[csvIdx][chkIdx])
+            print(temp)
         return selBirds,birdDict,centers
     
-    def buildViaJsons(self, centerlist, fileCount, directory, fileContents, testIdxs, imageWidth, boxWidth):
+    def buildViaJsons(self, centerlist, fileCount, directory, fileContents, testIdxs, imageWidth, boxWidth, highlightSize):
         jsonTestStr = ""
         jsonTrainStr = ""
         for c in range(len(centerlist)):
@@ -153,8 +155,8 @@ class ImageUtilities(object):
                 distY = int((centerLon / centerlist[c][2][1]) - (centerLonF / centerlist[c][2][1]))
                 fX = centerX - distX
                 fY = centerY - distY
-                w = 30
-                h = 30
+                w = highlightSize
+                h = highlightSize
                 #print(centerLat, centerLatF, distX, fX)
                 #print(centerLon, centerLonF, distY, fY)
                 birdType = fileContents[centerlist[c][1]][f].get('Species')
@@ -185,8 +187,8 @@ class ImageUtilities(object):
     def quote(self, str1):
         return "\"" + str1 + "\"" 
     
-    #get 30x30 training images
-    def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents):
+    #get highlightSizexhighlightSize training images
+    def parseImages(self, tifFiles, tifIdx, csvFiles, fileContents, highlightSize):
         gdal.AllRegister()
 
         #appleIslandFile = 'D:\Appledore\AppledoreIsland_SmuttynoseIsland_CedarIsland_81191_81182_81194_20190531_Ortho_Multi_2CM.tif'
@@ -243,7 +245,7 @@ class ImageUtilities(object):
                             #print(bands2.XSize, bands2.YSize)
                             #print(i)
         
-                            data = bands2.ReadAsArray(xOff-15, yOff-15, 30, 30)
+                            data = bands2.ReadAsArray(xOff-int(highlightSize/2), yOff-int(highlightSize/2), highlightSize, highlightSize)
                             
                             #data2 = bands2.ReadAsArray(xOff-200, yOff-200, 400, 400)
                             #plt.imshow(data2)
@@ -273,7 +275,7 @@ class ImageUtilities(object):
                 return i
         return -1
             
-    def getImagesForVIA(self, fileContents, centers, medoids, size, file, directory, fileIdx, testIdxs, birdDict, bdt, darknetFiles=False):
+    def getImagesForVIA(self, fileContents, centers, medoids, size, file, directory, fileIdx, testIdxs, birdDict, bdt, highlightSize, darknetFiles=False):
         badCenters = []
         idx = fileIdx
         print("getting images from",file)
@@ -316,8 +318,10 @@ class ImageUtilities(object):
                 b = data[0]
                 
                 if darknetFiles:
-                    centerX = int((size/2) - (30/2))
-                    centerY = int((size/2) - (30/2))
+                    #if(fileContents[centers[c][1]][centers[c][0]].get('Species') == "Tern spp"):
+                    #    highlightSize = 20
+                    centerX = int((size/2) - (highlightSize/2))
+                    centerY = int((size/2) - (highlightSize/2))
                     centerLat = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_X'))
                     centerLon = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_Y'))
                     ret = ""
@@ -331,19 +335,22 @@ class ImageUtilities(object):
                         distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
                         fX = centerX - distX
                         fY = centerY - distY
-                        w = 30
-                        h = 30
+#                         w = highlightSize
+#                         h = highlightSize
                         #print(centerLat, centerLatF, distX, fX)
                         #print(centerLon, centerLonF, distY, fY)
                         spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
+                        #if(spcStr == "Tern spp"):
+                        #    highlightSize = 20
                         birdType = self.strToSpeciesUseful(spcStr)
                         if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
-                            augment = True
+                            augment = False
                         
-                        _x      = (fX+30/2) / size # relative position of center x of rect
-                        _y      = (fY+30/2) / size # relative position of center y of rect
-                        _width  = 30 / size
-                        _height = 30 / size
+                        _x      = (fX+highlightSize/2) / size # relative position of center x of rect
+                        _y      = (fY+highlightSize/2) / size # relative position of center y of rect
+                        _width  = highlightSize / size
+                        _height = highlightSize / size
+                        highlightSize = 30
                         
                         #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                         if birdType != -1:
@@ -373,22 +380,23 @@ class ImageUtilities(object):
                             distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
                             fX = centerX - distX
                             fY = centerY - distY
-                            w = 30
-                            h = 30
+                            w = highlightSize
+                            h = highlightSize
                             #print(centerLat, centerLatF, distX, fX)
                             #print(centerLon, centerLonF, distY, fY)
                             spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
                             birdType = self.strToSpeciesUseful(spcStr)
-                            if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
-                                augment = True
+                            #if spcStr == "Tern spp":
+                            #    highlightSize = 20
                             
-                            _x      = (fX+30/2) / size # relative position of center x of rect
-                            _y      = (fY+30/2) / size # relative position of center y of rect
+                            _x      = (fX+highlightSize/2) / size # relative position of center x of rect
+                            _y      = (fY+highlightSize/2) / size # relative position of center y of rect
                             _ytemp = _y
                             _y = 1 - _x
                             _x = _ytemp
-                            _width  = 30 / size
-                            _height = 30 / size
+                            _width  = highlightSize / size
+                            _height = highlightSize / size
+                            highlightSize = 30
                             
                             #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                             if birdType != -1:
@@ -420,22 +428,21 @@ class ImageUtilities(object):
                             distY = int((centerLon / centers[c][2][1]) - (centerLonF / centers[c][2][1]))
                             fX = centerX - distX
                             fY = centerY - distY
-                            w = 30
-                            h = 30
                             #print(centerLat, centerLatF, distX, fX)
                             #print(centerLon, centerLonF, distY, fY)
                             spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
                             birdType = self.strToSpeciesUseful(spcStr)
-                            if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
-                                augment = True
+                            #if spcStr == "Tern spp":
+                            #    highlightSize = 20
                             
-                            _x      = (fX+30/2) / size # relative position of center x of rect
-                            _y      = (fY+30/2) / size # relative position of center y of rect
+                            _x      = (fX+highlightSize/2) / size # relative position of center x of rect
+                            _y      = (fY+highlightSize/2) / size # relative position of center y of rect
                             _xtemp = _x
                             _x = 1 - _y
                             _y = _xtemp
-                            _width  = 30 / size
-                            _height = 30 / size
+                            _width  = highlightSize / size
+                            _height = highlightSize / size
+                            highlightSize = 30
                             
                             #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                             if birdType != -1:
@@ -460,8 +467,8 @@ class ImageUtilities(object):
                         self.writeJPG(jpgFilename, r, g, b, len(r))
                         idx += 1
                         
-                        contrast = -50.0
-                        factor = 259.0 * (contrast + 255.0) / (255.0 * (259.0 - contrast))
+#                         contrast = -50.0
+#                         factor = 259.0 * (contrast + 255.0) / (255.0 * (259.0 - contrast))
 #                         for r1 in range(len(r)):
 #                             for r2 in range(len(r[r1])):
 #                                 r[r1][r2] = self.colorTruncate(round(factor * (r[r1][r2] - 128) + 128))
@@ -472,31 +479,31 @@ class ImageUtilities(object):
 #                         g = g * factor
 #                         b = b * factor
 
-                        r = np.add(r, -128)
-                        r = r*factor
-                        r = r + 128
-                        r = np.clip(r, 0, 255)
-                        r = np.round(r)
-                         
-                        g = np.add(g, -128)
-                        g = g*factor
-                        g = g + 128
-                        g = np.clip(g, 0, 255)
-                        g = np.round(g)
-                         
-                        b = np.add(b, -128)
-                        b = b*factor
-                        b = b + 128
-                        b = np.clip(b, 0, 255)  
-                        b = np.round(b)
-                         
-                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
-                        txtFilename = directory + "/data/" + str(idx) + '.txt'
-                        fo = open(txtFilename, "w")
-                        fo.write(ret)
-                        fo.close()
-                        self.writeJPG(jpgFilename, r, g, b, len(r))
-                        idx += 1
+#                         r = np.add(r, -128)
+#                         r = r*factor
+#                         r = r + 128
+#                         r = np.clip(r, 0, 255)
+#                         r = np.round(r)
+#                          
+#                         g = np.add(g, -128)
+#                         g = g*factor
+#                         g = g + 128
+#                         g = np.clip(g, 0, 255)
+#                         g = np.round(g)
+#                          
+#                         b = np.add(b, -128)
+#                         b = b*factor
+#                         b = b + 128
+#                         b = np.clip(b, 0, 255)  
+#                         b = np.round(b)
+#                          
+#                         jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+#                         txtFilename = directory + "/data/" + str(idx) + '.txt'
+#                         fo = open(txtFilename, "w")
+#                         fo.write(ret)
+#                         fo.close()
+#                         self.writeJPG(jpgFilename, r, g, b, len(r))
+#                         idx += 1
                     
                 else:
                     trainImage = True
@@ -514,7 +521,7 @@ class ImageUtilities(object):
                 print("issue with file", file)
                 badCenters.append(c)
                 #print(xOff, yOff, c[0], c[1], xOrig, yOrig, pixelWidth, pixelHeight)
-        return badCenters, birdDict, bdt
+        return badCenters, birdDict, bdt, idx
     #end debug comment
     
     def colorTruncate(self, c):
@@ -624,7 +631,7 @@ class ImageUtilities(object):
             loadFile = pickle.load(infile)
             return loadFile
         
-    def createJPGs(self, infile):
+    def createJPGs(self, infile, highlightSize):
         for i in range(len(infile)):
             for j in range(len(infile[i])):
                 filename = "D:/satImage/jpgs/" + str(infile[i][j][0]) + "_" + str(infile[i][j][1]) + "_" + str(i) + "_" + str(j) + ".jpg"
@@ -633,7 +640,7 @@ class ImageUtilities(object):
                 b = infile[i][j][4].flatten()
                 
                 
-                self.writeJPG(filename, r, g, b, 30)
+                self.writeJPG(filename, r, g, b, highlightSize)
                 
     #needs 1d array of rgb of same size
     def writeJPG(self, filename, r, g, b, size):
@@ -648,7 +655,7 @@ class ImageUtilities(object):
         
         cv2.imwrite(filename, result2)
         
-    def generateMask(self, infile, closeGap=False):
+    def generateMask(self, infile, highlightSize, closeGap=False):
         print("temp")
         
         #print(infile[0][2])
@@ -657,7 +664,7 @@ class ImageUtilities(object):
             for b in range(len(infile[a])):
                 
                 data = infile[a][b][2]
-                mask = np.zeros((30,30))
+                mask = np.zeros((highlightSize,highlightSize))
                 
                 #start 14,15
                 rowCount = 2
