@@ -28,6 +28,20 @@ class ImageUtilities(object):
     
     #comment method to debug
     
+    def behaviorToNumber(self, value):
+        try:
+            ret = int(value)
+            return ret
+        except ValueError:
+            pass
+        if value == "Roosting":
+            return 0
+        elif value == "Nesting":
+            return 1
+        elif value == "Flying":
+            return 2
+        return 3
+    
     def getTifInfo(self, filename):
         gdal.AllRegister()
         fh = gdal.Open(filename, GA_ReadOnly)
@@ -318,8 +332,6 @@ class ImageUtilities(object):
                 b = data[0]
                 
                 if darknetFiles:
-                    #if(fileContents[centers[c][1]][centers[c][0]].get('Species') == "Tern spp"):
-                    #    highlightSize = 20
                     centerX = int((size/2) - (highlightSize/2))
                     centerY = int((size/2) - (highlightSize/2))
                     centerLat = float(fileContents[centers[c][1]][centers[c][0]].get('POINT_X'))
@@ -340,11 +352,9 @@ class ImageUtilities(object):
                         #print(centerLat, centerLatF, distX, fX)
                         #print(centerLon, centerLonF, distY, fY)
                         spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
-                        #if(spcStr == "Tern spp"):
-                        #    highlightSize = 20
                         birdType = self.strToSpeciesUseful(spcStr)
                         if birdConstants.BirdConstants.specieStrUseful.__contains__(spcStr) and spcStr != "HERG":
-                            augment = False
+                            augment = True
                         
                         _x      = (fX+highlightSize/2) / size # relative position of center x of rect
                         _y      = (fY+highlightSize/2) / size # relative position of center y of rect
@@ -352,21 +362,25 @@ class ImageUtilities(object):
                         _height = highlightSize / size
                         highlightSize = 30
                         
+                        behavior = fileContents[centers[c][1]][centers[c][3][f]].get('Behavior')
+                        
                         #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                         if birdType != -1:
-                            ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
+                            #ret += "0 " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height)
+                            ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) + " " + str(self.behaviorToNumber(fileContents[centers[c][1]][centers[c][3][f]].get('Behavior'))) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Lat')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Long')) +"\n"
                             if not birdDict.__contains__(spcStr):
                                 birdDict[spcStr] = 1
                             else:
                                 birdDict[spcStr] = birdDict[spcStr] + 1
                         
-                    jpgFilename = directory + "/data/" + str(idx) + '.jpg'
-                    txtFilename = directory + "/data/" + str(idx) + '.txt'
-                    fo = open(txtFilename, "w")
-                    fo.write(ret)
-                    fo.close()
-                    self.writeJPG(jpgFilename, r, g, b, len(r))
-                    idx += 1
+                    if ret != "":
+                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                        txtFilename = directory + "/data/" + str(idx) + '.txt'
+                        fo = open(txtFilename, "w")
+                        fo.write(ret)
+                        fo.close()
+                        self.writeJPG(jpgFilename, r, g, b, len(r))
+                        idx += 1
                     
                     if augment:
                         
@@ -386,8 +400,6 @@ class ImageUtilities(object):
                             #print(centerLon, centerLonF, distY, fY)
                             spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
                             birdType = self.strToSpeciesUseful(spcStr)
-                            #if spcStr == "Tern spp":
-                            #    highlightSize = 20
                             
                             _x      = (fX+highlightSize/2) / size # relative position of center x of rect
                             _y      = (fY+highlightSize/2) / size # relative position of center y of rect
@@ -396,11 +408,12 @@ class ImageUtilities(object):
                             _x = _ytemp
                             _width  = highlightSize / size
                             _height = highlightSize / size
-                            highlightSize = 30
+                            #highlightSize = 30
                             
                             #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                             if birdType != -1:
-                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_height) + " " + str(_width) +"\n"
+                                #ret += "0 " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height)
+                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) + " " + str(self.behaviorToNumber(fileContents[centers[c][1]][centers[c][3][f]].get('Behavior'))) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Lat')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Long')) +"\n"
                                 if not birdDict.__contains__(spcStr):
                                     birdDict[spcStr] = 1
                                 else:
@@ -410,13 +423,14 @@ class ImageUtilities(object):
                         g = np.rot90(g)
                         b = np.rot90(b)
                         
-                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
-                        txtFilename = directory + "/data/" + str(idx) + '.txt'
-                        fo = open(txtFilename, "w")
-                        fo.write(ret)
-                        fo.close()
-                        self.writeJPG(jpgFilename, r, g, b, len(r))
-                        idx += 1
+                        if ret != "":
+                            jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                            txtFilename = directory + "/data/" + str(idx) + '.txt'
+                            fo = open(txtFilename, "w")
+                            fo.write(ret)
+                            fo.close()
+                            self.writeJPG(jpgFilename, r, g, b, len(r))
+                            idx += 1
                         
                         ret = ""
                         for f in range(len(centers[c][3])):
@@ -432,8 +446,6 @@ class ImageUtilities(object):
                             #print(centerLon, centerLonF, distY, fY)
                             spcStr = fileContents[centers[c][1]][centers[c][3][f]].get('Species')
                             birdType = self.strToSpeciesUseful(spcStr)
-                            #if spcStr == "Tern spp":
-                            #    highlightSize = 20
                             
                             _x      = (fX+highlightSize/2) / size # relative position of center x of rect
                             _y      = (fY+highlightSize/2) / size # relative position of center y of rect
@@ -446,7 +458,8 @@ class ImageUtilities(object):
                             
                             #ret += str([birdType.lower() for item in birdConstants.BirdConstants.specieStrUseful].index(birdType.lower())) + " " + str(fileContents[centers[c][1]][f].get('Species')) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) +"\n"
                             if birdType != -1:
-                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_height) + " " + str(_width) +"\n"
+                                #ret += "0 " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height)
+                                ret += str(birdType) + " " + str(_x) + " " + str(_y) + " " + str(_width) + " " + str(_height) + " " + str(self.behaviorToNumber(fileContents[centers[c][1]][centers[c][3][f]].get('Behavior'))) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_X')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('POINT_Y')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Lat')) + " " + str(fileContents[centers[c][1]][centers[c][3][f]].get('Long')) +"\n"
                                 if not birdDict.__contains__(spcStr):
                                     birdDict[spcStr] = 1
                                 else:
@@ -459,13 +472,14 @@ class ImageUtilities(object):
                         g = np.rot90(g)
                         b = np.rot90(b)
                         
-                        jpgFilename = directory + "/data/" + str(idx) + '.jpg'
-                        txtFilename = directory + "/data/" + str(idx) + '.txt'
-                        fo = open(txtFilename, "w")
-                        fo.write(ret)
-                        fo.close()
-                        self.writeJPG(jpgFilename, r, g, b, len(r))
-                        idx += 1
+                        if ret != "":
+                            jpgFilename = directory + "/data/" + str(idx) + '.jpg'
+                            txtFilename = directory + "/data/" + str(idx) + '.txt'
+                            fo = open(txtFilename, "w")
+                            fo.write(ret)
+                            fo.close()
+                            self.writeJPG(jpgFilename, r, g, b, len(r))
+                            idx += 1
                         
 #                         contrast = -50.0
 #                         factor = 259.0 * (contrast + 255.0) / (255.0 * (259.0 - contrast))
